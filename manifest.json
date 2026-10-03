@@ -1,7 +1,7 @@
 {
   "id": "trader-editor-tools",
   "name": "Trader Editor Tools",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.6.0",
   "description": "交易员编辑增强：段落排版、图片拖拽缩放、文字颜色、高亮与下划线。",
   "author": "longpeng1413",

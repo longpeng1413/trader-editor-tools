@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2 - 2026-10-03
+
+- Fix missing paragraph padding for ordinary quotes, indented list paragraphs and standalone indented code; remove theme vertical margins without losing quote borders/indentation.
+- Apply the same compact block gap to nested list items. Collapse quoted paragraph separator lines without collapsing real blank code lines.
+- Detect two/three-space ordinary prose and preserve reference definition continuations. Indented code does not interrupt a prose paragraph without a blank line.
+- Formatting optionally separates plain indented list paragraphs, keeps indentation/nesting, and handles return to unindented prose. Existing notes are never rewritten automatically.
+- Add optional ordinary-prose Enter enhancement using standard blank lines; native list/quote/code/source-mode behavior remains available.
+- Add a public mixed-block regression sample. All 57 regressions pass, including real CM6/Chromium gap measurements and Enter/undo tests; native Windows layout measurements cover Live Preview and Reading View.
+
 ## 0.1.1 - 2026-10-03
 
 ### Fixed

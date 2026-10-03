@@ -8,6 +8,7 @@ const DEFAULTS = {
   layoutVersion:2, layoutEnabled:true, lineHeight:1.62, blockPadding:0.28,
   headingH1:0.95, headingH2:0.82, headingH3:0.70, headingH4:0.58,
   listIndent:1.8, imagePadding:0.28, tablePadding:0.28, splitProseLines:true, looseLists:true,
+  splitIndentedListParagraphs:true, paragraphEnter:true,
   backupEnabled:true, imageResize:true, readingResize:true, freeResize:false, maxImageWidth:4096,
   colors:[
     {name:'风险红',text:'#d64545',background:'#ffd9dc'},
@@ -135,6 +136,8 @@ class TraderSettings extends PluginSettingTab {
       }));
     toggle('格式化：逐行分段','普通正文每个物理换行独立成段；顶层列表后未缩进正文也独立成段。原笔记用软换行延续列表或手工折行时请关闭。自动折行、硬换行和嵌套列表保留。','splitProseLines');
     toggle('格式化：分隔顶层列表项','为顶层兄弟列表项增加空行；嵌套列表内容保持原样。','looseLists');
+    toggle('格式化：分隔列表内缩进正文','为列表项后的普通缩进正文补空行，保留原缩进和嵌套层级。代码、引用、多行 HTML / 强调与硬换行不拆。先检查预览。','splitIndentedListParagraphs');
+    toggle('普通正文 Enter 自动分段','编辑模式在普通正文末尾按一次 Enter 插入段落空行；可关闭。列表、引用、代码和源码模式继续使用 Obsidian 原行为。旧笔记不会自动改写。','paragraphEnter');
     toggle('保存原文备份','格式化、阅读模式图片写回前，在本插件 backups 目录保存原文。备份不会自动删除。','backupEnabled');
     new Setting(el).setName('备份位置').setDesc(`${p.app.vault.configDir}/plugins/${p.manifest.id}/backups/`);
     el.createEl('h3',{text:'图片拖拽缩放'});

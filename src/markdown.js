@@ -76,9 +76,11 @@ function classify(text, { splitLazyListLines = false } = {}) {
   const table = Array(lines.length).fill(false);
   const opaque = Array(lines.length).fill(false);
   const quotes = Array(lines.length).fill(false);
+  const quoteBlanks = Array(lines.length).fill(false);
   const continuations = Array(lines.length).fill(false);
+  const indentedCode = Array(lines.length).fill(false);
   let fence = null, yaml = false, comment = false, html = false, math = false;
-  let quote = false, quoteCanLazy = false, list = false, lastListIndent = 0;
+  let quote = false, quoteCanLazy = false, list = false, lastListIndent = 0, listContentIndent = 2, reference = false;
   for (let i = 0; i < lines.length; i++) {
     const s = lines[i].text;
     // A quote does not own everything until a blank line: headings, lists,
@@ -115,10 +117,11 @@ function classify(text, { splitLazyListLines = false } = {}) {
       else html = !/<\/(?:div|table|pre|script|style|details|section|figure|iframe)>/i.test(s);
       continue;
     }
-    if (!s.trim()) { kinds[i] = 'blank'; quote = false; continue; }
+    if (!s.trim()) { kinds[i] = 'blank'; quote = false; reference = false; continue; }
     if (/^\s*>/.test(s)) {
       kinds[i] = 'protected'; quotes[i]=true; quote=true; list=false;
       const content=s.replace(/^(?:\s*>\s?)+/,'');
+      quoteBlanks[i]=!content.trim();
       quoteCanLazy=!!content.trim() && !interruptsParagraph(content);
       // A quoted list item's prose can itself have a lazy continuation.
       if(listItem(content)?.content.trim()) quoteCanLazy=true;
@@ -127,11 +130,25 @@ function classify(text, { splitLazyListLines = false } = {}) {
     if(quote && quoteCanLazy) { kinds[i]='protected';quotes[i]=true;continue; }
     quote=false;
     // Reference/footnote definitions and their continuation lines are opaque.
-    if (/^\s*\[[^\]]+\]:/.test(s)) { kinds[i] = 'protected'; opaque[i]=true; continue; }
+    if (/^\s*\[[^\]]+\]:/.test(s)) { kinds[i] = 'protected'; opaque[i]=true; reference=true; continue; }
+    if(reference && /^( {2,}|\t)/.test(s)) { kinds[i]='protected';opaque[i]=true;continue; }
+    reference=false;
     if (/^ {0,3}(?:([-*_])(?:\s*\1){2,})\s*$/.test(s)) { kinds[i]='protected';list=false;continue; }
     const li = listItem(s);
-    if (li) { kinds[i] = 'list'; list = true; lastListIndent=li.indent; continue; }
-    if (/^( {2,}|\t)/.test(s)) { kinds[i] = 'protected'; opaque[i]=!list; continue; }
+    if (li) { kinds[i] = 'list'; list = true; lastListIndent=li.indent; listContentIndent=s.match(/^ *(?:[-+*]|\d+[.)])\s+/)[0].length; continue; }
+    if (/^( {2,}|\t)/.test(s)) {
+      const indent=s.match(/^\s*/)[0].replace(/\t/g,'    ').length;
+      if(list && indent>=listContentIndent) {
+        kinds[i]='protected';opaque[i]=false;
+        // A plain indented list paragraph is not an opaque code block. Keep
+        // its source unchanged, but give it paragraph start/end metadata.
+        continuations[i]=indent<listContentIndent+4 && !interruptsParagraph(s.trimStart()) && !/^\s*[<>!\[]/.test(s);
+        continue;
+      }
+      if(indent>=4 && !(i>0 && kinds[i-1]==='prose' && lines[i-1].text.trim())) { kinds[i]='protected';opaque[i]=true;indentedCode[i]=true;list=false;continue; }
+      // Up to three spaces outside a list are legal paragraph indentation.
+      list=false;
+    }
     // In preserve-soft-lines mode this is a legal lazy continuation. The
     // explicit per-physical-line formatter mode treats unindented text after
     // a TOP-LEVEL item as a new paragraph; nested content remains protected.
@@ -150,7 +167,7 @@ function classify(text, { splitLazyListLines = false } = {}) {
   for(const regex of [/(`+)([\s\S]*?)\1/g, /(\*\*|__|~~)([\s\S]*?)\1/g, /<(span|mark|u)\b[^>]*>[\s\S]*?<\/\1>/gi, /\[[^\]]*\n[^\]]*\](?:\([^)]*\)|\[[^\]]*\])/g]) {
     let match;
     while((match=regex.exec(text))) if(/[\r\n]/.test(match[0])) {
-      for(let i=0;i<lines.length;i++) if(lines[i].start < regex.lastIndex && lines[i].end > match.index) kinds[i]='protected';
+      for(let i=0;i<lines.length;i++) if(lines[i].start < regex.lastIndex && lines[i].end > match.index) { kinds[i]='protected';continuations[i]=false;opaque[i]=true; }
     }
   }
   const tableContent=s=>s.replace(/^\s*(?:>\s*)+/, '');
@@ -163,16 +180,25 @@ function classify(text, { splitLazyListLines = false } = {}) {
       i = j - 1;
     }
   }
-  return { lines, kinds, table, quotes, continuations };
+  // Blank lines between indented code lines belong to the code block, not
+  // paragraph separators. Never visually collapse intentional code blanks.
+  for(let i=1;i<lines.length-1;i++) if(kinds[i]==='blank' && indentedCode[i-1]) {
+    let j=i;while(j<lines.length && kinds[j]==='blank')j++;
+    if(indentedCode[j]) for(let k=i;k<j;k++) {indentedCode[k]=true;kinds[k]='protected';}
+  }
+  return { lines, kinds, table, quotes, quoteBlanks, continuations, indentedCode };
 }
 
-function formatNote(text, { splitProseLines = true, looseLists = true } = {}) {
-  const { lines, kinds, quotes } = classify(text,{splitLazyListLines:splitProseLines});
+function formatNote(text, { splitProseLines = true, looseLists = true, splitIndentedListParagraphs = false } = {}) {
+  const { lines, kinds, quotes, continuations } = classify(text,{splitLazyListLines:splitProseLines});
   const eol = /\r\n/.test(text) ? '\r\n' : '\n';
   const insertBefore = new Set();
   for (let i = 1; i < lines.length; i++) {
     const a = kinds[i - 1], b = kinds[i];
     if (a === 'blank' || b === 'blank') continue;
+    if(continuations[i-1] && ['prose','heading','image','table'].includes(b) && /^\S/.test(lines[i].text)) insertBefore.add(i);
+    if(splitIndentedListParagraphs && continuations[i] && /^( {2,}|\t)\S/.test(lines[i].text) &&
+       (a==='list' || continuations[i-1]) && !/(?: {2,}|\\)$/.test(lines[i-1].text) && !/(?: {2,}|\\)$/.test(lines[i].text)) insertBefore.add(i);
     // Only separate known TOP-LEVEL quote boundaries; do not split quoted
     // Callout content, valid lazy prose, or nested list quote children.
     if(quotes[i] && !quotes[i-1] && /^>/.test(lines[i].text) && ['prose','heading','image','table'].includes(a)) insertBefore.add(i);

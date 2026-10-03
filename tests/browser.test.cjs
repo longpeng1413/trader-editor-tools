@@ -151,6 +151,77 @@ test('automatic wrapped lines get only one pair of block padding',async()=>{
   assert.ok(value.height>value.line*3);assert.equal(value.padding,8.96);
   assert.ok(Math.abs((value.height-value.padding)/value.line-Math.round((value.height-value.padding)/value.line))<0.03);
 });
+test('quote, prose, list and standalone indented code have equal external block gaps',async()=>{
+  const input='第一段\n\n第二段\n\n- A\n\n- B\n\n> 引用\n> 引用内软换行\n\n第三段\n\n\t缩进代码\n\t代码内换行\n\n第四段';
+  for(const mode of ['live','reading']) {
+    await setup(input,mode);
+    const selector=mode==='live'?'.tet-block-start':'.markdown-preview-view > p,.markdown-preview-view > blockquote,.markdown-preview-view > pre,.markdown-preview-view > ul > li';
+    const boxes=await page.locator(selector).evaluateAll(ns=>ns.map(n=>{let r=n.getBoundingClientRect(),c=getComputedStyle(n);return {top:r.top,bottom:r.bottom,padTop:parseFloat(c.paddingTop),padBottom:parseFloat(c.paddingBottom),margin:c.marginBlock};}));
+    assert.equal(boxes.length,8);
+    // Multi-line quote/code LP blocks consist of multiple CM lines.
+    if(mode==='live') {
+      const endings=await page.locator('.tet-block-end').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect().bottom));
+      for(let i=1;i<boxes.length;i++) assert.ok(Math.abs(boxes[i].top+boxes[i].padTop-endings[i-1]+4.48-8.96)<0.1,JSON.stringify(boxes));
+    } else {
+      for(let i=1;i<boxes.length;i++) assert.ok(Math.abs(boxes[i].top+boxes[i].padTop-boxes[i-1].bottom+boxes[i-1].padBottom-8.96)<0.1,JSON.stringify(boxes));
+    }
+    for(const b of boxes) {assert.equal(b.padTop,4.48);assert.equal(b.margin,'0px');}
+    if(mode==='reading') {
+      const before=await page.locator(selector).evaluateAll(ns=>ns.map(n=>{const c=getComputedStyle(n);return [c.paddingTop,c.paddingBottom,c.marginBlock,c.lineHeight];}));
+      await page.emulateMedia({media:'print'});
+      const after=await page.locator(selector).evaluateAll(ns=>ns.map(n=>{const c=getComputedStyle(n);return [c.paddingTop,c.paddingBottom,c.marginBlock,c.lineHeight];}));
+      assert.deepEqual(after,before);await page.emulateMedia({media:'screen'});
+    }
+    assert.equal(await page.evaluate(()=>fixture.text()),input);
+  }
+});
+test('list indented paragraphs use same block gaps without altering nesting',async()=>{
+  const input='- A\n\n  child one\n\n  child two\n\n- B\n\n正文';
+  await setup(input);
+  const starts=await page.locator('.tet-block-start').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect().top+parseFloat(getComputedStyle(n).paddingTop)));
+  const ends=await page.locator('.tet-block-end').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect().bottom-parseFloat(getComputedStyle(n).paddingBottom)));
+  assert.equal(starts.length,5);assert.equal(ends.length,5);
+  for(let i=1;i<starts.length;i++)assert.ok(Math.abs(starts[i]-ends[i-1]-8.96)<.1);
+  await setup(input,'reading');
+  assert.equal(await page.locator('li').count(),2);
+  assert.equal(await page.locator('li').first().locator('p').count(),3);
+  const paragraphs=await page.locator('li').first().locator('p').evaluateAll(ns=>ns.map(n=>({top:n.getBoundingClientRect().top,bottom:n.getBoundingClientRect().bottom,pad:parseFloat(getComputedStyle(n).paddingTop)})));
+  for(let i=1;i<paragraphs.length;i++)assert.ok(Math.abs(paragraphs[i].top+paragraphs[i].pad-paragraphs[i-1].bottom-8.96)<.1);
+});
+test('paragraph Enter inserts standard blank separator, is optional and skips protected structures',async()=>{
+  await setup('正文');await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:2}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\n');await page.evaluate(()=>fixture.undo());assert.equal(await page.evaluate(()=>fixture.text()),'正文');
+  await page.evaluate(()=>fixture.plugin.settings.paragraphEnter=false);await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n');
+  for(const text of ['- list','> quote','\tcode','```js','line  ']) {
+    await setup(text);await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:fixture.text().length}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');
+    assert.ok(!await page.evaluate(()=>fixture.text().endsWith('\n\n')),text);
+  }
+  for(const text of ['正文','正文\n','正文\n\n']) {
+    await setup(text);await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:2}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');await page.keyboard.type('new');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\nnew');
+  }
+  for(const text of ['正文\n后段','正文\n\n后段']) {
+    await setup(text);await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:2}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');await page.keyboard.type('new');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\nnew\n\n后段');
+  }
+  await setup('正文');await page.evaluate(()=>{fixture.info.getState=()=>({source:true});fixture.cm.dispatch({selection:{anchor:2}});});await page.locator('.cm-content').focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n');
+  await setup('正文');await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:1}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>fixture.text()),'正\n文');
+});
+test('quoted paragraph separators collapse and nested lists retain equal knowledge-block gaps',async()=>{
+  for(const mode of ['live','reading']) {
+    await setup('> 引用一\n>\n> 引用二\n\n正文\n\n- 父级\n  - 子级一\n  - 子级二\n- 另一个父级',mode);
+    if(mode==='live') {
+      assert.equal(await page.locator('.tet-quote-gap').evaluate(n=>n.getBoundingClientRect().height),0);
+      const starts=await page.locator('.tet-block-start').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect().top+parseFloat(getComputedStyle(n).paddingTop)));
+      const ends=await page.locator('.tet-block-end').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect().bottom-parseFloat(getComputedStyle(n).paddingBottom)));
+      assert.equal(starts.length,7);for(let i=1;i<starts.length;i++)assert.ok(Math.abs(starts[i]-ends[i-1]-8.96)<.1);
+    } else {
+      const ps=await page.locator('blockquote > p').evaluateAll(ns=>ns.map(n=>({top:n.getBoundingClientRect().top,bottom:n.getBoundingClientRect().bottom,pad:parseFloat(getComputedStyle(n).paddingTop)})));
+      assert.ok(Math.abs(ps[1].top+ps[1].pad-ps[0].bottom-8.96)<.1);
+      const lis=await page.locator('li').evaluateAll(ns=>ns.map(n=>({top:n.getBoundingClientRect().top,pad:parseFloat(getComputedStyle(n).paddingTop),bottom:n.getBoundingClientRect().bottom,child:!!n.querySelector('ul')})));
+      assert.equal(lis.length,4);for(let i=0;i<lis.length;i++)assert.equal(lis[i].pad,4.48);
+      assert.ok(Math.abs(lis[2].top+lis[2].pad-lis[1].bottom+4.48-8.96)<.1);
+    }
+  }
+});
 
 test('headings keep symmetric specified em padding',async()=>{
   await setup('# 一\n\n## 二\n\n### 三\n\n#### 四\n\n##### 五\n\n###### 六','reading');

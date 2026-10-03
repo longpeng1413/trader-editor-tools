@@ -11,6 +11,22 @@ test('formatter is idempotent and preserves CRLF and final newline',()=>{
   const once=formatNote('正文一\r\n正文二\r\n').text;
   assert.equal(once,'正文一\r\n\r\n正文二\r\n');assert.equal(formatNote(once).text,once);
 });
+test('indented list paragraphs are metadata, not opaque code; independent code is preserved',()=>{
+  const d=classify('- A\n  child\n\n  second\n\n- B\n\noutside\n\n\tcode\n\n\tmore');
+  assert.equal(d.continuations[1],true);assert.equal(d.continuations[3],true);
+  assert.equal(d.indentedCode[9],true);assert.equal(d.indentedCode[10],true);assert.equal(d.indentedCode[11],true);
+  assert.deepEqual(classify('  prose\n   prose').kinds,['prose','prose']);
+  assert.deepEqual(classify('prose\n\tsoft line').kinds,['prose','prose']);
+});
+test('explicit indented paragraph formatting inserts only blanks and is idempotent',()=>{
+  const text='- A\n  paragraph one\n  paragraph two\n  - nested\n    child\n\n    [link]: x\n        "title"';
+  const opts={splitIndentedListParagraphs:true};
+  const out=formatNote(text,opts).text;
+  assert.equal(out,'- A\n\n  paragraph one\n\n  paragraph two\n  - nested\n\n    child\n\n    [link]: x\n        "title"');
+  assert.equal(formatNote(out,opts).text,out);
+  assert.equal(formatNote('- A\n  child\noutside',opts).text,'- A\n\n  child\n\noutside');
+  for(const input of ['- A\n      code\n      more','- A\n  **multi\n  line**','- A\n  line  \n  break','> quote\n> continuation','\tcode\n\tmore']) assert.equal(formatNote(input,opts).text,input);
+});
 
 test('quote followed immediately by a heading and list releases the protected region',()=>{
   const input='## 第一节\n> 第一段引用\n## 第二节\n> 第二段引用\n- 列表一\n- 列表二\n\n正文';

@@ -37,8 +37,28 @@ body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li {
   margin-block: 0 !important;
   padding-block: var(--tet-block-padding);
 }
-body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li :is(li,p) { margin-block: 0 !important; padding-block: 0; }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li p { margin-block: 0 !important; padding-block: 0; }
 body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > p + p { padding-top: calc(2 * var(--tet-block-padding)); }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li:has(> :is(ul,ol)) { padding-bottom: 0; }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > :is(ul,ol) { padding-top: var(--tet-block-padding) !important; }
+/* Quotes and actual indented-code blocks participate in the SAME spacing
+   model. Keep their horizontal border/indent, not the theme's vertical gap. */
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) :is(blockquote,pre) {
+  margin-block: 0 !important;
+  padding-block: var(--tet-block-padding) !important;
+  line-height: var(--tet-line-height);
+  font-size: 1em;
+}
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) blockquote:not(.callout) > :is(p,ul,ol,blockquote) {
+  margin-block: 0 !important;
+  padding-block: 0 !important;
+}
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) blockquote:not(.callout) > p + p { padding-top: calc(2 * var(--tet-block-padding)) !important; }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) blockquote:not(.callout) > :is(ul,ol) > li:first-child { padding-top: 0; }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) blockquote:not(.callout) > :is(ul,ol) > li:last-child { padding-bottom: 0; }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > :is(blockquote,pre) { padding-top: calc(2 * var(--tet-block-padding)) !important; padding-bottom: 0 !important; }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > :is(blockquote,pre):first-child { padding-top: 0 !important; }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > :is(blockquote,pre) + p { padding-top: calc(2 * var(--tet-block-padding)); }
 body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) :is(h1,h2,h3,h4,h5,h6) {
   margin-block: 0 !important;
   padding-block: var(--tet-h4);
@@ -56,12 +76,12 @@ body.tet-enabled .markdown-preview-view .el-table { padding-block: var(--tet-tab
 body.tet-enabled :is(.markdown-preview-view, .markdown-source-view) :is(td,th) :is(img,svg.excalidraw-svg) {
   max-width: none;
 }
-body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-prose,.tet-list-line) {
+body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-prose,.tet-list-line,.tet-list-continuation,.tet-quote-line,.tet-code-line) {
   line-height: var(--tet-line-height);
   margin-block: 0 !important;
   padding-block: 0 !important;
 }
-body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line.tet-gap {
+body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-gap,.tet-quote-gap) {
   height: 0 !important;
   min-height: 0 !important;
   line-height: 0 !important;

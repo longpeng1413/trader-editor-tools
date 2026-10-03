@@ -6,7 +6,7 @@ An MIT-licensed Obsidian plugin for compact Markdown layout, persistent image re
 
 ## Install
 
-Download `trader-editor-tools-0.1.1-install.zip` from Releases. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
+Download `trader-editor-tools-0.1.2-install.zip` from Releases. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
 
 ```text
 VAULT/.obsidian/plugins/trader-editor-tools/
@@ -29,7 +29,9 @@ For upgrades, disable the plugin, replace its runtime files, and enable it again
 - Selection colors, background highlights, underlines and clear-style commands, available through the editor context menu, command palette and user-assigned hotkeys. Colors are customizable Hex values stored in readable standard HTML.
 - Reading View and PDF share semantic block styles. PDF controls are hidden and colors preserved.
 
-Version 0.1.1 fixes quote boundaries: a heading/list directly after a quote no longer loses Live Preview layout. Genuine lazy quote/list continuations and nested content remain protected.
+Version 0.1.2 extends equal block spacing to quotes, nested lists, indented list paragraphs and standalone indented code. Quoted blank paragraph separators collapse in Live Preview. Formatting can insert missing list-paragraph separators without changing indentation, including when returning to unindented prose.
+
+Optional **paragraph Enter** is enabled by default: at the end of ordinary prose in Live Preview, Enter creates a standard blank paragraph separator. Lists, quotes, code, selections, mid-line edits, hard breaks and source mode keep native behavior. Disable it in settings if preferred. Existing notes are never automatically rewritten; to repair missing separators, run formatting once and confirm the preview instead of adding blank lines individually.
 
 ## Safety and limits
 
@@ -37,7 +39,7 @@ No telemetry, network calls or external service is used by the plugin. Formattin
 
 Formatting is conservative, not a complete Markdown parser/reflow engine. If a note uses physical soft line breaks deliberately, turn off per-line paragraph splitting. Quotes/Callouts, nested lists, YAML, code and uncertain inline constructs are protected. Semantic paragraph conversion requires an explicit formatting command, not visual CSS tricks.
 
-Windows / Obsidian 1.13.7 / default theme / Excalidraw 2.27.3 have native testing evidence. Other themes, complex HTML and third-party rendering variants may differ. Android/iOS installation is permitted by the manifest, but **mobile touch and keyboard behavior have not been tested on real devices**. There is no enhanced Enter mode or mobile floating toolbar in this version.
+Windows / Obsidian 1.13.7 / default theme / Excalidraw 2.27.3 have native testing evidence. Other themes, complex HTML and third-party rendering variants may differ. Android/iOS installation is permitted by the manifest, but **mobile touch and keyboard behavior have not been tested on real devices**. There is no mobile floating toolbar in this version.
 
 Text styling is intended for single-paragraph selections. It is not a full rich-text editor; Markdown inside HTML and partially selected existing markup may render differently. Free height is renderer-dependent for some drawing formats; proportional width is recommended.
 

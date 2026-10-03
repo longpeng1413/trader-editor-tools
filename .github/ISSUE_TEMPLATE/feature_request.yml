@@ -1,0 +1,18 @@
+name: Feature request / 功能建议
+description: Describe the workflow and portable Markdown behavior you need.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow / 使用场景
+      description: Explain the problem, without private notes or attachments.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior / 期望行为
+      description: Include expected Markdown syntax, undo/backup behavior and mobile needs if relevant.
+    validations:
+      required: true

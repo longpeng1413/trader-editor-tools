@@ -1,0 +1,33 @@
+name: Release
+on:
+  push:
+    tags: ['[0-9]*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate version
+        run: node scripts/validate-release.cjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test:core
+      - name: Package portable source and installer
+        shell: pwsh
+        run: ./scripts/package.ps1 -OutputDirectory ./dist
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" manifest.json main.js styles.css versions.json dist/*.zip --verify-tag --title "Trader Editor Tools $RELEASE_TAG" --notes-file CHANGELOG.md

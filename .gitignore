@@ -1,0 +1,10 @@
+node_modules/
+.test-artifacts/
+dist/
+.release-stage/
+data.json
+backups/
+.obsidian/
+*.log
+package-stage-*/
+*.zip

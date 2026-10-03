@@ -19,6 +19,16 @@ function layoutExtension(plugin) {
       if (info?.getMode?.() === 'source' && info?.getState?.()?.source === true) return builder.finish();
       const doc = view.state.doc;
       const { kinds, lines, continuations, quotes, quoteBlanks, indentedCode } = classify(doc.toString());
+      const tabRows=new Set();
+      if(plugin.settings.tabKnowledgeLines) {
+        const keys=tabKnowledgeKeys(doc.toString());
+        for(let i=0;i<lines.length;i++) if(indentedCode[i]&&(i===0||!indentedCode[i-1])) {
+          let j=i;while(indentedCode[j])j++;
+          const key=lines.slice(i,j).map(l=>l.text.replace(/^(?: {0,3}\t| {4})/,'')).join('\n');
+          if(keys.has(key))for(let k=i;k<j;k++)tabRows.add(k);
+          i=j-1;
+        }
+      }
       let previous=-1;
       for (const range of view.visibleRanges) {
         const first = doc.lineAt(range.from).number, last = doc.lineAt(range.to).number;
@@ -51,8 +61,12 @@ function layoutExtension(plugin) {
           }
           if(indentedCode[n-1]) {
             attrs.class='tet-code-line';
-            if(!indentedCode[n-2]) attrs.class+=' tet-block-start';
-            if(!indentedCode[n]) attrs.class+=' tet-block-end';
+            const tabKnowledge=tabRows.has(n-1);
+            if(tabKnowledge) attrs.class=lines[n-1].text.trim()?'tet-code-line tet-tab-knowledge-line tet-block-start tet-block-end':'tet-gap tet-tab-gap';
+            else {
+              if(!indentedCode[n-2]) attrs.class+=' tet-block-start';
+              if(!indentedCode[n]) attrs.class+=' tet-block-end';
+            }
           }
           if(kind==='heading') attrs.class+=` tet-h${Math.min(6,(lines[n-1].text.match(/^\s*(#+)/)?.[1] || '#').length)}`;
           builder.add(line.from,line.from,Decoration.line({attributes:attrs}));
@@ -87,6 +101,66 @@ function layoutExtension(plugin) {
   }}]))];
 }
 
+function isTabKnowledgeLine(text) { return /^ {0,3}\t\S|^ {0,3}\t\s+\S/.test(text); }
+const tabContexts=new WeakMap();
+function normalizedCode(text) { return text.replace(/\r\n/g,'\n').replace(/\n$/,''); }
+function tabKnowledgeKeys(source) {
+  const data=classify(source),keys=new Set(),excluded=new Set();
+  for(let i=0;i<data.lines.length;i++) if(data.indentedCode[i] && (i===0||!data.indentedCode[i-1])) {
+    let j=i;while(data.indentedCode[j])j++;
+    const rows=data.lines.slice(i,j).map(l=>l.text);
+    const key=rows.map(s=>s.replace(/^(?: {0,3}\t| {4})/,'')).join('\n');
+    if(rows.filter(s=>s.trim()).every(isTabKnowledgeLine))keys.add(key);else excluded.add(key);
+    i=j-1;
+  }
+  // A repeated fenced/space-indented block with identical text is ambiguous:
+  // refuse visual conversion rather than turn real code into knowledge rows.
+  let fence=null,body=[];
+  for(const line of data.lines) {
+    const m=/^ {0,3}(`{3,}|~{3,})/.exec(line.text);
+    if(!fence&&m){fence=m[1];body=[];continue;}
+    if(fence) {
+      if(new RegExp('^ {0,3}'+fence[0]+'{'+fence.length+',}\\s*$').test(line.text)){excluded.add(body.join('\n'));fence=null;}
+      else body.push(line.text);
+    }
+  }
+  for(const key of excluded)keys.delete(key);
+  return keys;
+}
+
+function decorateTabKnowledge(el,ctx,settings) {
+  const blocks=[...(el.matches?.('pre')?[el]:[]),...el.querySelectorAll('pre')];
+  for(const pre of blocks) {
+    tabContexts.set(pre,ctx);
+    if(!settings.layoutEnabled || !settings.tabKnowledgeLines)continue;
+    if(pre.classList.contains('tet-tab-knowledge'))continue;
+    const code=pre.querySelector('code');
+    if(!code || [...code.classList].some(c=>c.startsWith('language-')))continue;
+    let info;try{info=ctx.getSectionInfo(pre);}catch{continue;}
+    if(!info?.text || !tabKnowledgeKeys(info.text).has(normalizedCode(code.textContent)))continue;
+    const text=code.textContent,rows=normalizedCode(text).split('\n');
+    code.replaceChildren();
+    rows.forEach((row,i)=>{
+      const span=code.ownerDocument.createElement('span');
+      span.className=row.trim()?'tet-tab-row':'tet-tab-empty';span.textContent=row;
+      code.appendChild(span);
+      if(i<rows.length-1 || text.endsWith('\n'))code.appendChild(code.ownerDocument.createTextNode('\n'));
+    });
+    pre.classList.add('tet-tab-knowledge');code.classList.add('tet-tab-code');
+  }
+}
+
+function refreshTabKnowledge(doc,settings) {
+  for(const pre of doc.querySelectorAll('pre')) {
+    if(pre.classList.contains('tet-tab-knowledge')) {
+      const code=pre.querySelector('code');
+      if(code){code.textContent=code.textContent;code.classList.remove('tet-tab-code');}
+      pre.classList.remove('tet-tab-knowledge');
+    }
+    const ctx=tabContexts.get(pre);if(ctx&&settings)decorateTabKnowledge(pre,ctx,settings);
+  }
+}
+
 function applyLayout(doc, settings) {
   doc.body.classList.toggle('tet-enabled',settings.layoutEnabled);
   const vars = {
@@ -107,4 +181,4 @@ function applyLayout(doc, settings) {
   style.textContent = `:root { ${Object.entries(vars).map(([k,v])=>`${k}: ${v};`).join(' ')} }`;
 }
 
-module.exports = { layoutExtension, applyLayout };
+module.exports = { layoutExtension, applyLayout, decorateTabKnowledge, refreshTabKnowledge, tabKnowledgeKeys };

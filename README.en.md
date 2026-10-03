@@ -6,7 +6,7 @@ An MIT-licensed Obsidian plugin for compact Markdown layout, persistent image re
 
 ## Install
 
-Download `trader-editor-tools-0.1.2-install.zip` from Releases. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
+Download `trader-editor-tools-0.1.3-install.zip` from Releases. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
 
 ```text
 VAULT/.obsidian/plugins/trader-editor-tools/
@@ -30,6 +30,10 @@ For upgrades, disable the plugin, replace its runtime files, and enable it again
 - Reading View and PDF share semantic block styles. PDF controls are hidden and colors preserved.
 
 Version 0.1.2 extends equal block spacing to quotes, nested lists, indented list paragraphs and standalone indented code. Quoted blank paragraph separators collapse in Live Preview. Formatting can insert missing list-paragraph separators without changing indentation, including when returning to unindented prose.
+
+Version 0.1.3 adds **Tab knowledge rows**, enabled by default and optional in settings. Standalone indented blocks whose nonblank lines all start with a Tab (optionally after 0–3 spaces) get 0.28em padding on each side of each physical line, matching list items. Wrapping within one line stays at line-height 1.62. Live Preview, Reading View and print styles use the same model; internal blank separators do not add gaps. No source text is modified.
+
+Standard Markdown treats standalone Tab indentation as code, not paragraphs. This is an explicit display enhancement, not a source-format conversion: disabling it or the plugin restores native code rendering. Fenced and space-indented code remain unchanged; ambiguous identical code blocks are left untouched. Disable this option if Tabs denote programming code. Standard blank-line-separated paragraphs are still recommended for new prose.
 
 Optional **paragraph Enter** is enabled by default: at the end of ordinary prose in Live Preview, Enter creates a standard blank paragraph separator. Lists, quotes, code, selections, mid-line edits, hard breaks and source mode keep native behavior. Disable it in settings if preferred. Existing notes are never automatically rewritten; to repair missing separators, run formatting once and confirm the preview instead of adding blank lines individually.
 

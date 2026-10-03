@@ -20,4 +20,4 @@ const code=`(async()=>{
   }
   return JSON.stringify({mode,views:p.cmViews.size,rootClass:root?.className,results});
 })()`;
-console.log(execFileSync(cli,['eval','vault='+vault,'code='+code],{encoding:'utf8',timeout:15000}));
+console.log(execFileSync(cli,['vault='+vault,'eval','code='+code],{encoding:'utf8',timeout:15000}));

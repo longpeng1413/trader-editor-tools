@@ -59,6 +59,17 @@ body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) blockquote:not(
 body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > :is(blockquote,pre) { padding-top: calc(2 * var(--tet-block-padding)) !important; padding-bottom: 0 !important; }
 body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > :is(blockquote,pre):first-child { padding-top: 0 !important; }
 body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) li > :is(blockquote,pre) + p { padding-top: calc(2 * var(--tet-block-padding)); }
+body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) pre.tet-tab-knowledge { padding-block: 0 !important; }
+body.tet-enabled pre.tet-tab-knowledge > code.tet-tab-code { display: block; white-space: normal; font-size: 1em !important; }
+body.tet-enabled pre.tet-tab-knowledge .tet-tab-row {
+  display: block;
+  white-space: pre-wrap;
+  line-height: var(--tet-line-height);
+  padding-block: var(--tet-block-padding);
+  margin-block: 0;
+  font-size: 1em;
+}
+body.tet-enabled pre.tet-tab-knowledge .tet-tab-empty { display: none; }
 body.tet-enabled :is(.markdown-preview-view, .markdown-rendered) :is(h1,h2,h3,h4,h5,h6) {
   margin-block: 0 !important;
   padding-block: var(--tet-h4);

@@ -1,14 +1,14 @@
 # 交易员编辑增强 / Trader Editor Tools
 
-版本 **0.1.2**，MIT 开源。完整可安装插件，不需要安装 Node.js，不需要编译。优先支持 Windows / Obsidian 1.13.x / Live Preview；手机可安装，但尚未真机验收。
+版本 **0.1.3**，MIT 开源。完整可安装插件，不需要安装 Node.js，不需要编译。优先支持 Windows / Obsidian 1.13.x / Live Preview；手机可安装，但尚未真机验收。
 
 [English](README.en.md) · [下载发布版](https://github.com/longpeng1413/trader-editor-tools/releases/latest) · [更新记录](CHANGELOG.md) · [开发指南](CONTRIBUTING.md) · [架构](docs/ARCHITECTURE.md) · [测试记录](TESTING.md) · [问题反馈](https://github.com/longpeng1413/trader-editor-tools/issues)
 
-0.1.2 将正文、列表（含嵌套）、列表内缩进段落、普通引用、独立缩进代码块统一到同一套块间距，补全引用/缩进边界。新增可关闭的普通正文 Enter 分段增强。升级仍不会自动格式化旧笔记。
+0.1.3 新增默认启用、可关闭的 **Tab 缩进知识行** 显示：独立 Tab 块的每个物理行与列表项同间距，自动折行仍紧凑；Live Preview、阅读和打印样式一致。继承 0.1.2 的引用/嵌套列表统一间距和可选普通正文 Enter 分段。升级仍不会自动格式化旧笔记。
 
 ## 安装到另一台电脑
 
-1. 从 Releases 下载并解压 `trader-editor-tools-0.1.2-install.zip`，得到 `trader-editor-tools` 文件夹。
+1. 从 Releases 下载并解压 `trader-editor-tools-0.1.3-install.zip`，得到 `trader-editor-tools` 文件夹。
 2. 将整个文件夹放入**笔记库**的 `.obsidian/plugins/`。不是 Obsidian 程序安装目录。例如：`你的笔记库/.obsidian/plugins/trader-editor-tools/main.js`。
 3. 打开 Obsidian → 设置 → 第三方插件，允许社区插件后，找到 **Trader Editor Tools** 并启用。未出现时重启 Obsidian。
 4. 设置 → Trader Editor Tools 调整参数。设置 → 快捷键，搜索 `Trader Editor Tools`，为需要的命令自行绑定按键。
@@ -36,6 +36,12 @@
 | 列表缩进 | 1.8em |
 
 正文↔正文、列表↔列表、正文↔列表、列表↔缩进段落、引用↔正文使用同一套块间距，嵌套列表项也参与。总相邻留白约 0.56em，不再添加额外 margin 或主题列表间距。引用只保留横向边线和缩进，不叠加主题的垂直留白。真正的独立缩进代码块也使用同一外部间距，但代码块内部换行保持紧凑。Live Preview 中结构性空白行（含仅有 `>` 的引用段落分隔行）压缩为零高度；源码模式保留正常空行。
+
+### Tab 缩进知识行
+
+默认开启“Tab 缩进按知识行显示”。独立缩进块中，所有非空行都以 Tab（允许前面 0–3 个空格）开头时，每个物理行上下各留 0.28em；同一行自动折成两三行只使用 1.62 行高。组内空白分隔行不叠加空洞，正文↔Tab 行、Tab 行↔Tab 行使用相同留白。仅改变显示，不删除 Tab，不写回正文。
+
+标准 Markdown 本来把独立 Tab 缩进识别成代码块，本功能是可选的显示增强，不把它伪称为标准段落。阅读/打印也按相同规则显示；停用插件恢复原生缩进代码显示。围栏代码、空格缩进代码不转换；与真正代码内容完全相同而无法可靠区分时保守不转换。如果 Tab 用于程序代码，请关闭此设置。新建普通段落仍推荐标准空行分段。
 
 旧原型的像素间距设置自动迁移为这套基准；配色、功能开关保留。设置页有“恢复已验证 WoLai 基准”按钮，不修改笔记正文。
 
@@ -143,7 +149,7 @@ pnpm test
 ## 常见问题
 
 - 看不到插件：检查是不是解压后套了两层目录；`manifest.json`、`main.js`、`styles.css` 应直接位于 `.obsidian/plugins/trader-editor-tools/`。
-- 引用/缩进段落间距异常：升级到 0.1.2，停用再启用插件或重启 Obsidian；不需要调大 0.28em。
+- 引用/缩进段落间距异常：升级到 0.1.3，停用再启用插件或重启 Obsidian；不需要调大 0.28em。独立 Tab 行请确认“Tab 缩进按知识行显示”开启。
 - 间距仍过大：关闭旧 WoLai/段落 CSS 片段，再点设置中的“恢复已验证 WoLai 基准”。关闭本插件排版开关不影响文字样式和图片功能。
 - 看起来像一段的旧笔记：源文本可能只有软换行而没有段落空行。使用格式化预览明确转换，不会自动改写。
 - 绘图不显示：检查 Excalidraw 是否在当前设备启用；等待异步渲染完成后再点击。

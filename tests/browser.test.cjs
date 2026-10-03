@@ -152,7 +152,7 @@ test('automatic wrapped lines get only one pair of block padding',async()=>{
   assert.ok(Math.abs((value.height-value.padding)/value.line-Math.round((value.height-value.padding)/value.line))<0.03);
 });
 test('quote, prose, list and standalone indented code have equal external block gaps',async()=>{
-  const input='第一段\n\n第二段\n\n- A\n\n- B\n\n> 引用\n> 引用内软换行\n\n第三段\n\n\t缩进代码\n\t代码内换行\n\n第四段';
+  const input='第一段\n\n第二段\n\n- A\n\n- B\n\n> 引用\n> 引用内软换行\n\n第三段\n\n    缩进代码\n    代码内换行\n\n第四段';
   for(const mode of ['live','reading']) {
     await setup(input,mode);
     const selector=mode==='live'?'.tet-block-start':'.markdown-preview-view > p,.markdown-preview-view > blockquote,.markdown-preview-view > pre,.markdown-preview-view > ul > li';
@@ -220,6 +220,43 @@ test('quoted paragraph separators collapse and nested lists retain equal knowled
       assert.equal(lis.length,4);for(let i=0;i<lis.length;i++)assert.equal(lis[i].pad,4.48);
       assert.ok(Math.abs(lis[2].top+lis[2].pad-lis[1].bottom+4.48-8.96)<.1);
     }
+  }
+});
+test('physical Tab knowledge rows match list spacing in live, reading and print; disable restores native code',async()=>{
+  const input='正文\n\n\tTab 第一行。\n\tTab 第二行。\n\n正文二\n\n- A\n- B';
+  for(const mode of ['live','reading']) {
+    await setup(input,mode);
+    const selector=mode==='live'?'.tet-tab-knowledge-line':'.tet-tab-row';
+    assert.equal(await page.locator(selector).count(),2);
+    const boxes=await page.locator(selector).evaluateAll(ns=>ns.map(n=>{const c=getComputedStyle(n),r=n.getBoundingClientRect();return {top:r.top+parseFloat(c.paddingTop),bottom:r.bottom-parseFloat(c.paddingBottom),padding:[c.paddingTop,c.paddingBottom],line:c.lineHeight};}));
+    for(const box of boxes){assert.deepEqual(box.padding,['4.48px','4.48px']);assert.equal(box.line,'25.92px');}
+    assert.ok(Math.abs(boxes[1].top-boxes[0].bottom-8.96)<.1);
+    const allBoxes=await page.locator(mode==='live'?'.tet-block-start':'.markdown-preview-view > p,.tet-tab-row,li').evaluateAll(ns=>ns.map(n=>{const c=getComputedStyle(n),r=n.getBoundingClientRect();return {top:r.top+parseFloat(c.paddingTop),bottom:r.bottom-parseFloat(c.paddingBottom)};}));
+    for(let i=1;i<allBoxes.length;i++)assert.ok(Math.abs(allBoxes[i].top-allBoxes[i-1].bottom-8.96)<.1,mode+' Tab/prose/list boundary '+i);
+    if(mode==='reading') {
+      const original=await page.locator('pre code').textContent();assert.equal(original,'Tab 第一行。\nTab 第二行。\n');
+      await page.emulateMedia({media:'print'});assert.equal(await page.locator('.tet-tab-row').first().evaluate(n=>getComputedStyle(n).paddingTop),'4.48px');await page.emulateMedia({media:'screen'});
+      await page.evaluate(async()=>{fixture.plugin.settings.tabKnowledgeLines=false;await fixture.plugin.saveSettings();});
+      assert.equal(await page.locator('.tet-tab-row').count(),0);assert.equal(await page.locator('pre code').textContent(),original);
+      await page.evaluate(async()=>{fixture.plugin.settings.tabKnowledgeLines=true;await fixture.plugin.saveSettings();});assert.equal(await page.locator('.tet-tab-row').count(),2);
+    }
+    assert.equal(await page.evaluate(()=>fixture.text()),input);
+  }
+});
+test('Tab knowledge wrapping gets padding once per physical line; fenced and space code are untouched',async()=>{
+  const input='\t'+('很长的一条缩进知识行。'.repeat(70))+'\n\t短行。\n\n```\n真正围栏代码一\n真正围栏代码二\n```\n\n    空格缩进代码一\n    空格缩进代码二';
+  for(const mode of ['live','reading']) {
+    await setup(input,mode);
+    const selector=mode==='live'?'.tet-tab-knowledge-line':'.tet-tab-row';
+    assert.equal(await page.locator(selector).count(),2);
+    const h=await page.locator(selector).first().evaluate(n=>{const c=getComputedStyle(n);return {height:n.getBoundingClientRect().height,padding:parseFloat(c.paddingTop)+parseFloat(c.paddingBottom),line:parseFloat(c.lineHeight)};});
+    assert.equal(h.padding,8.96);assert.ok(h.height>h.line*3);
+    if(mode==='reading'){assert.equal(await page.locator('pre:not(.tet-tab-knowledge)').count(),2);assert.equal(await page.locator('.tet-tab-row').count(),2);}
+  }
+  // Duplicate real code text is ambiguous: preserve native code everywhere.
+  for(const mode of ['live','reading']) {
+    await setup('\t相同内容\n\n```\n相同内容\n```\n\n    相同内容',mode);
+    assert.equal(await page.locator(mode==='live'?'.tet-tab-knowledge-line':'.tet-tab-row').count(),0);
   }
 });
 

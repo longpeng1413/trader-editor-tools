@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3 - 2026-10-03
+
+- Add optional Tab knowledge-row display, enabled by default: each physical line of a standalone Tab-indented block uses the same symmetric padding as list items; wrapping stays compact.
+- Match Live Preview, Reading View and print styles without changing note source. Setting changes and plugin unload restore native code DOM/text.
+- Preserve fenced/space-indented code; refuse conversion when identical real-code content makes matching ambiguous.
+- Fix native diagnostics to place the vault selector before the CLI command.
+- All 59 regressions pass, including wrapping, settings restoration and unchanged source. Native Windows measurements verify Tab rows in Live Preview and Reading View; print is covered by browser regression, not a new full native PDF export.
+
 ## 0.1.2 - 2026-10-03
 
 - Fix missing paragraph padding for ordinary quotes, indented list paragraphs and standalone indented code; remove theme vertical margins without losing quote borders/indentation.

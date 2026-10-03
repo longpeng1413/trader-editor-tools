@@ -25,8 +25,10 @@ git push origin 0.1.1
 Release assets:
 
 - `manifest.json`, `main.js`, `styles.css`, `versions.json`
-- `trader-editor-tools-VERSION-install.zip`
-- `trader-editor-tools-VERSION-source.zip`
+- `猛人obsidian编辑插件-VERSION-安装包.zip`
+- `猛人obsidian编辑插件-VERSION-源码.zip`
+
+0.1.4 起安装包使用中文显示名称；包内目录和内部 ID 仍为 `trader-editor-tools`，不要因显示名称变化迁移用户设置或重复安装。
 
 先保留默认 pnpm 锁文件。源码包不含开发依赖、账户凭据、vault 设置/备份；包含 CI 和全部公开文档。发布时不要覆盖已有不同内容的同版本 tag/ZIP；修复应增加新版本。
 

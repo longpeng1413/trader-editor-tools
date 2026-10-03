@@ -1,4 +1,4 @@
-# Trader Editor Tools
+# 猛人obsidian编辑插件 / Mengren Obsidian Editor
 
 An MIT-licensed Obsidian plugin for compact Markdown layout, persistent image resizing, text colors, highlights and underlines. Maintained by [longpeng1413](https://github.com/longpeng1413).
 
@@ -6,7 +6,7 @@ An MIT-licensed Obsidian plugin for compact Markdown layout, persistent image re
 
 ## Install
 
-Download `trader-editor-tools-0.1.3-install.zip` from Releases. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
+Download `猛人obsidian编辑插件-0.1.4-安装包.zip` from Releases. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
 
 ```text
 VAULT/.obsidian/plugins/trader-editor-tools/
@@ -15,7 +15,7 @@ VAULT/.obsidian/plugins/trader-editor-tools/
   styles.css
 ```
 
-Enable **Trader Editor Tools** in Settings → Community plugins. Avoid an extra outer directory. Keep Excalidraw installed if you use drawings; this plugin does not replace it. The plugin is **not yet listed in the Obsidian community directory**.
+Enable **猛人obsidian编辑插件** in Settings → Community plugins. The UI is primarily Chinese. The original internal ID, folder `trader-editor-tools` and GitHub repository URL remain unchanged to preserve settings, hotkeys and backups; do not create a second folder for the same ID. Avoid an extra outer directory. Keep Excalidraw installed if you use drawings; this plugin does not replace it. The plugin is **not yet listed in the Obsidian community directory**.
 
 For upgrades, disable the plugin, replace its runtime files, and enable it again. Preserve your `data.json` and `backups/` directory.
 
@@ -35,7 +35,9 @@ Version 0.1.3 adds **Tab knowledge rows**, enabled by default and optional in se
 
 Standard Markdown treats standalone Tab indentation as code, not paragraphs. This is an explicit display enhancement, not a source-format conversion: disabling it or the plugin restores native code rendering. Fenced and space-indented code remain unchanged; ambiguous identical code blocks are left untouched. Disable this option if Tabs denote programming code. Standard blank-line-separated paragraphs are still recommended for new prose.
 
-Optional **paragraph Enter** is enabled by default: at the end of ordinary prose in Live Preview, Enter creates a standard blank paragraph separator. Lists, quotes, code, selections, mid-line edits, hard breaks and source mode keep native behavior. Disable it in settings if preferred. Existing notes are never automatically rewritten; to repair missing separators, run formatting once and confirm the preview instead of adding blank lines individually.
+Version 0.1.4 restores **native Obsidian editing**. The plugin no longer registers an Enter handler or inserts blank paragraph separators on keystrokes. Enter, Shift+Enter, Tab and Backspace belong to the host editor; quote/list/indent continuation and exit follow Obsidian's settings. The old `paragraphEnter` setting is ignored and its toggle removed. To create a standard paragraph, use a blank line or explicitly confirm the formatting preview.
+
+While editing, blank, Tab-only and empty quote-prefix rows containing the caret/selection remain visible and editable. Other structural separators still collapse; moving away or blurring the editor restores compact display. An empty note remains clickable. This temporary input space does not modify text or change Reading/PDF spacing. Source mode remains native.
 
 ## Safety and limits
 

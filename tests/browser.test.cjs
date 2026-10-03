@@ -188,22 +188,49 @@ test('list indented paragraphs use same block gaps without altering nesting',asy
   const paragraphs=await page.locator('li').first().locator('p').evaluateAll(ns=>ns.map(n=>({top:n.getBoundingClientRect().top,bottom:n.getBoundingClientRect().bottom,pad:parseFloat(getComputedStyle(n).paddingTop)})));
   for(let i=1;i<paragraphs.length;i++)assert.ok(Math.abs(paragraphs[i].top+paragraphs[i].pad-paragraphs[i-1].bottom-8.96)<.1);
 });
-test('paragraph Enter inserts standard blank separator, is optional and skips protected structures',async()=>{
-  await setup('正文');await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:2}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');
-  assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\n');await page.evaluate(()=>fixture.undo());assert.equal(await page.evaluate(()=>fixture.text()),'正文');
-  await page.evaluate(()=>fixture.plugin.settings.paragraphEnter=false);await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n');
-  for(const text of ['- list','> quote','\tcode','```js','line  ']) {
-    await setup(text);await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:fixture.text().length}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');
-    assert.ok(!await page.evaluate(()=>fixture.text().endsWith('\n\n')),text);
+test('Enter is not intercepted, including legacy paragraphEnter settings; native host owns editing',async()=>{
+  // Fixture has CM's plain fallback, not Obsidian's Markdown continuation
+  // keymap. Assert that the plugin does not add any Enter behavior of its own.
+  for(const text of ['正文','- list','> quote','>**quote**','\tcode','```js','line  ']) {
+    await setup(text);await page.evaluate(()=>{fixture.plugin.settings.paragraphEnter=true;fixture.cm.dispatch({selection:{anchor:fixture.text().length}});});
+    await page.locator('.cm-content').focus();await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(()=>fixture.text()),text+'\n');
+    const height=await page.locator('.cm-line').last().evaluate(n=>n.getBoundingClientRect().height);assert.ok(height>0,text);
+    await page.evaluate(()=>fixture.undo());assert.equal(await page.evaluate(()=>fixture.text()),text);
   }
-  for(const text of ['正文','正文\n','正文\n\n']) {
-    await setup(text);await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:2}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');await page.keyboard.type('new');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\nnew');
-  }
-  for(const text of ['正文\n后段','正文\n\n后段']) {
-    await setup(text);await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:2}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');await page.keyboard.type('new');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\nnew\n\n后段');
-  }
-  await setup('正文');await page.evaluate(()=>{fixture.info.getState=()=>({source:true});fixture.cm.dispatch({selection:{anchor:2}});});await page.locator('.cm-content').focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>fixture.text()),'正文\n');
   await setup('正文');await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:1}}));await page.locator('.cm-content').focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>fixture.text()),'正\n文');
+});
+test('caret blank, Tab-only and quote-prefix rows stay visible and editable without altering separators',async()=>{
+  for(const prefix of ['','\t','\t\t','> ','> > ']) {
+    const text='前文\n\n'+prefix+'\n\n后文';await setup(text);
+    await page.evaluate(p=>fixture.cm.dispatch({selection:{anchor:fixture.cm.state.doc.line(3).from+p.length}}),prefix);await page.locator('.cm-content').focus();
+    await page.waitForSelector('.tet-input-gap');
+    const active=page.locator('.tet-input-gap');assert.equal(await active.count(),1);
+    assert.ok(await active.evaluate(n=>n.getBoundingClientRect().height)>=25.9);
+    assert.equal(await active.evaluate(n=>getComputedStyle(n).lineHeight),'25.92px');
+    assert.equal(await page.evaluate(()=>fixture.text()),text);
+    await page.keyboard.type('new');assert.equal(await page.evaluate(()=>fixture.text()),'前文\n\n'+prefix+'new\n\n后文');
+    await page.evaluate(()=>fixture.undo());assert.equal(await page.evaluate(()=>fixture.text()),text);
+    await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:fixture.cm.state.doc.length}}));
+    assert.equal(await active.count(),0);
+    assert.equal(await page.locator('.cm-line').nth(2).evaluate(n=>n.getBoundingClientRect().height),0);
+  }
+});
+test('blank selections reveal input lines, blur collapses them and an empty document stays clickable',async()=>{
+  await setup('前文\n\n\t\n\n后文');await page.locator('.cm-content').focus();
+  await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:fixture.cm.state.doc.line(2).from,head:fixture.cm.state.doc.line(4).to}}));
+  assert.equal(await page.locator('.tet-input-gap').count(),3);
+  await page.evaluate(()=>fixture.cm.contentDOM.blur());
+  await page.waitForFunction(()=>document.querySelectorAll('.tet-input-gap').length===0);
+  assert.equal(await page.evaluate(()=>fixture.text()),'前文\n\n\t\n\n后文');
+  await setup('');
+  const empty=await page.locator('.cm-line').first().evaluate(n=>({height:n.getBoundingClientRect().height,html:n.outerHTML,line:getComputedStyle(n).lineHeight,font:getComputedStyle(n).fontSize,focus:fixture.cm.hasFocus}));
+  // An empty CM document may have no visible ranges/decorations yet; its
+  // native placeholder must remain clickable, not have a forced exact height.
+  assert.ok(empty.height>0,JSON.stringify(empty));
+  await page.locator('.cm-content').focus();await page.keyboard.type('new');assert.equal(await page.evaluate(()=>fixture.text()),'new');
+  await setup('正文\n');await page.evaluate(()=>{fixture.info.getState=()=>({source:true});fixture.cm.dispatch({selection:{anchor:3}});});await page.locator('.cm-content').focus();
+  assert.equal(await page.locator('.tet-input-gap').count(),0);assert.ok(await page.locator('.cm-line').last().evaluate(n=>n.getBoundingClientRect().height)>0);
 });
 test('quoted paragraph separators collapse and nested lists retain equal knowledge-block gaps',async()=>{
   for(const mode of ['live','reading']) {

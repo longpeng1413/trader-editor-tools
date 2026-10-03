@@ -92,11 +92,21 @@ body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-
   margin-block: 0 !important;
   padding-block: 0 !important;
 }
-body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-gap,.tet-quote-gap) {
+body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-gap,.tet-quote-gap):not(.tet-input-gap) {
   height: 0 !important;
   min-height: 0 !important;
   line-height: 0 !important;
   font-size: 0 !important;
+  margin-block: 0 !important;
+  padding-block: 0 !important;
+}
+/* A live input line must have room for its native caret, indentation and quote
+   prefix. This is temporary editing space, not another persistent block gap. */
+body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line.tet-input-gap {
+  height: auto !important;
+  min-height: calc(1em * var(--tet-line-height)) !important;
+  line-height: var(--tet-line-height) !important;
+  font-size: inherit !important;
   margin-block: 0 !important;
   padding-block: 0 !important;
 }

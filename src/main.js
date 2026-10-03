@@ -8,7 +8,7 @@ const DEFAULTS = {
   layoutVersion:2, layoutEnabled:true, lineHeight:1.62, blockPadding:0.28,
   headingH1:0.95, headingH2:0.82, headingH3:0.70, headingH4:0.58,
   listIndent:1.8, imagePadding:0.28, tablePadding:0.28, splitProseLines:true, looseLists:true,
-  splitIndentedListParagraphs:true, paragraphEnter:true,
+  splitIndentedListParagraphs:true,
   tabKnowledgeLines:true,
   backupEnabled:true, imageResize:true, readingResize:true, freeResize:false, maxImageWidth:4096,
   colors:[
@@ -115,7 +115,7 @@ class TraderSettings extends PluginSettingTab {
   constructor(app,plugin) { super(app,plugin); this.plugin=plugin; }
   display() {
     const p=this.plugin, s=p.settings, el=this.containerEl; el.empty();
-    el.createEl('h2',{text:'交易员编辑增强 / Trader Editor Tools'});
+    el.createEl('h2',{text:'猛人obsidian编辑插件'});
     el.createEl('p',{text:'格式化只在主动运行命令并确认预览后修改笔记。图片尺寸只在完成拖动或点击保存后写回。',cls:'tet-muted'});
     const toggle=(name,description,key)=>new Setting(el).setName(name).setDesc(description).addToggle(t=>t.setValue(s[key]).onChange(async value=>{s[key]=value;await p.saveSettings();}));
     const number=(name,key,min,max,step=1)=>new Setting(el).setName(name).addSlider(t=>t.setLimits(min,max,step).setValue(s[key]).setDynamicTooltip().onChange(async value=>{s[key]=value;await p.saveSettings();}));
@@ -138,7 +138,7 @@ class TraderSettings extends PluginSettingTab {
     toggle('格式化：逐行分段','普通正文每个物理换行独立成段；顶层列表后未缩进正文也独立成段。原笔记用软换行延续列表或手工折行时请关闭。自动折行、硬换行和嵌套列表保留。','splitProseLines');
     toggle('格式化：分隔顶层列表项','为顶层兄弟列表项增加空行；嵌套列表内容保持原样。','looseLists');
     toggle('格式化：分隔列表内缩进正文','为列表项后的普通缩进正文补空行，保留原缩进和嵌套层级。代码、引用、多行 HTML / 强调与硬换行不拆。先检查预览。','splitIndentedListParagraphs');
-    toggle('普通正文 Enter 自动分段','编辑模式在普通正文末尾按一次 Enter 插入段落空行；可关闭。列表、引用、代码和源码模式继续使用 Obsidian 原行为。旧笔记不会自动改写。','paragraphEnter');
+    new Setting(el).setName('原生编辑逻辑').setDesc('本插件不接管 Enter、Shift+Enter、Tab 或 Backspace；缩进、引用和列表延续由 Obsidian 原生处理。光标所在的空白输入行保持可见，其他段落分隔空行仍紧凑显示。');
     toggle('Tab 缩进按知识行显示','独立 Tab 缩进块中，每个物理行都使用与列表项相同的块间距；自动折行仍紧凑。阅读/PDF 同步显示。代码围栏和空格缩进代码不受影响；若 Tab 本来表示程序代码，请关闭。只改变显示，不写正文。','tabKnowledgeLines');
     toggle('保存原文备份','格式化、阅读模式图片写回前，在本插件 backups 目录保存原文。备份不会自动删除。','backupEnabled');
     new Setting(el).setName('备份位置').setDesc(`${p.app.vault.configDir}/plugins/${p.manifest.id}/backups/`);
@@ -217,7 +217,7 @@ module.exports = class TraderEditorTools extends Plugin {
       if(!editor.getSelection()) return;
       let snapshot; try { snapshot=captureSelection(editor,info.file);snapshot.info=info; } catch(_) { return; }
       menu.addSeparator();
-      for(const [kind,label,icon] of [['color','交易员工具：文字颜色…','palette'],['highlight','交易员工具：背景高亮…','highlighter'],['underline','交易员工具：切换下划线','underline'],['clear','交易员工具：清除文字样式','eraser']]) {
+      for(const [kind,label,icon] of [['color','猛人编辑：文字颜色…','palette'],['highlight','猛人编辑：背景高亮…','highlighter'],['underline','猛人编辑：切换下划线','underline'],['clear','猛人编辑：清除文字样式','eraser']]) {
         menu.addItem(item=>item.setTitle(label).setIcon(icon).onClick(()=>{
           try { if(kind==='color'||kind==='highlight') new PaletteModal(this,snapshot,kind).open(); else commitStyle(snapshot,kind); } catch(e) { notifyError(e); }
         }));

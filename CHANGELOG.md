@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 - 2026-10-03
+
+- 插件更名为「猛人obsidian编辑插件」，设置、菜单和安装包采用中文名称；内部 ID、安装目录及仓库地址保留，已有设置、快捷键与备份不丢失。
+- 恢复 Obsidian 原生编辑：移除 Enter 接管与自动分段开关，忽略旧 paragraphEnter 设置；不接管 Enter、Shift+Enter、Tab、Backspace。
+- 聚焦编辑时，光标/选区所在的空白行、Tab 空行、空引用行保持可见；只压缩非活动结构空行，空白笔记仍可点击。
+- 焦点变化只刷新显示，不写笔记；已验证的块间距与阅读/PDF 样式保持不变。
+- 61 项回归通过（34 算法 + 27 浏览器）。真实 Windows 键盘测试验证 Tab/引用续行和空引用退出；Tab 续行与停用插件的原生结果一致。
+
 ## 0.1.3 - 2026-10-03
 
 - Add optional Tab knowledge-row display, enabled by default: each physical line of a standalone Tab-indented block uses the same symmetric padding as list items; wrapping stays compact.

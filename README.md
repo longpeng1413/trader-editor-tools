@@ -1,20 +1,22 @@
-# 交易员编辑增强 / Trader Editor Tools
+# 猛人obsidian编辑插件
 
-版本 **0.1.3**，MIT 开源。完整可安装插件，不需要安装 Node.js，不需要编译。优先支持 Windows / Obsidian 1.13.x / Live Preview；手机可安装，但尚未真机验收。
+版本 **0.1.4**，MIT 开源。完整可安装插件，不需要安装 Node.js，不需要编译。优先支持 Windows / Obsidian 1.13.x / Live Preview；手机可安装，但尚未真机验收。
 
 [English](README.en.md) · [下载发布版](https://github.com/longpeng1413/trader-editor-tools/releases/latest) · [更新记录](CHANGELOG.md) · [开发指南](CONTRIBUTING.md) · [架构](docs/ARCHITECTURE.md) · [测试记录](TESTING.md) · [问题反馈](https://github.com/longpeng1413/trader-editor-tools/issues)
 
-0.1.3 新增默认启用、可关闭的 **Tab 缩进知识行** 显示：独立 Tab 块的每个物理行与列表项同间距，自动折行仍紧凑；Live Preview、阅读和打印样式一致。继承 0.1.2 的引用/嵌套列表统一间距和可选普通正文 Enter 分段。升级仍不会自动格式化旧笔记。
+0.1.4 恢复 **Obsidian 原生编辑逻辑**：不再接管 Enter，也不自动为回车补段落空行。修复空白输入行被压成零高度的问题，光标所在的普通空行、Tab 行和空引用行保持可见。保留已验证的块间距、Tab 知识行显示和其他功能；升级不会自动修改旧笔记。
 
 ## 安装到另一台电脑
 
-1. 从 Releases 下载并解压 `trader-editor-tools-0.1.3-install.zip`，得到 `trader-editor-tools` 文件夹。
+1. 从 Releases 下载并解压 `猛人obsidian编辑插件-0.1.4-安装包.zip`，得到 `trader-editor-tools` 文件夹。
 2. 将整个文件夹放入**笔记库**的 `.obsidian/plugins/`。不是 Obsidian 程序安装目录。例如：`你的笔记库/.obsidian/plugins/trader-editor-tools/main.js`。
-3. 打开 Obsidian → 设置 → 第三方插件，允许社区插件后，找到 **Trader Editor Tools** 并启用。未出现时重启 Obsidian。
-4. 设置 → Trader Editor Tools 调整参数。设置 → 快捷键，搜索 `Trader Editor Tools`，为需要的命令自行绑定按键。
+3. 打开 Obsidian → 设置 → 第三方插件，允许社区插件后，找到 **猛人obsidian编辑插件** 并启用。未出现时重启 Obsidian。
+4. 设置 → 猛人obsidian编辑插件调整参数。设置 → 快捷键，搜索 `猛人`，为需要的命令自行绑定按键。
 5. 关闭旧 `wolai-layout.css` 和其他同类排版片段，避免叠加。也不建议同时启用多个拦截图片拖动的插件。
 
 必需文件为 `manifest.json`、`main.js`、`styles.css`；另外附带 `versions.json`、说明、许可证与验收记录。不要把源代码 ZIP 当作安装 ZIP；也不要套两层同名文件夹。
+
+本插件原名 Trader Editor Tools。0.1.4 起统一使用中文显示名称，菜单和设置以中文为主。内部 ID、安装目录 `trader-editor-tools` 及现有 GitHub 仓库地址保持不变，避免丢失配色、快捷键与备份；升级时不要另建一个同 ID 的插件目录。
 
 升级时先停用插件，覆盖这三个运行文件，保留原来的 `data.json` 和 `backups/`，再启用。不随安装包携带其他人的设置和备份。
 
@@ -60,9 +62,11 @@
 
 **旧笔记不必逐处按回车：运行一次格式化命令，检查预览并确认即可。** 没有空行的物理软换行仍属于原来的同一 Markdown 段落；插件不偷偷改写，也不只在 Live Preview 假造段落，让阅读/PDF 仍显示不同结构。
 
-### 普通正文 Enter 自动分段
+### 原生编辑逻辑与空白输入行
 
-默认开启，可在设置中关闭。Live Preview 在普通正文末尾按一次 Enter，自动建立标准 Markdown 段落空行；已有空行会复用。只响应用户按键，不扫描或改写打开的旧笔记。列表、引用、代码、硬换行、非空选区、行中间和源码模式继续使用 Obsidian 的原行为；关闭“逐行分段”时此增强也不生效。`Shift+Enter` 不被本插件接管。
+从 0.1.4 开始移除原来的 Enter 分段增强。Enter、Shift+Enter、Tab、Backspace 全部交给 Obsidian 原生编辑器处理；引用/列表延续和退出、缩进续行遵守 Obsidian 的设置，不另写一套规则。旧 `paragraphEnter` 设置被忽略，不再显示该开关。普通正文回车不会自动变成双换行；需要独立段落时使用标准空行，或主动运行格式化预览。
+
+编辑器获得焦点时，光标/选区所在的空白行、仅含 Tab 的行和空引用前缀行保留正常可见行高，可以继续输入和撤销。光标移走或编辑器失焦后，结构性空行恢复紧凑显示；空白笔记保持可点击。这个临时输入空间不会写入额外空行，也不增加阅读/PDF 的块间距。源码模式仍使用原生空行显示。
 
 ## 2. 图片拖拽缩放
 
@@ -94,7 +98,7 @@
 
 编辑模式下选中一个段落内的文字：
 
-- 右键 → “交易员工具：文字颜色…”或“背景高亮…” → 选颜色。
+- 右键 → “猛人编辑：文字颜色…”或“背景高亮…” → 选颜色。
 - 命令面板搜索插件名，运行颜色、高亮、切换下划线、清除样式命令。
 - 常用颜色在设置页自定义。前 9 个槽位各有独立颜色/高亮命令，可在 Obsidian 快捷键页绑定，例如 Alt+1。插件不强占默认快捷键。
 
@@ -149,7 +153,7 @@ pnpm test
 ## 常见问题
 
 - 看不到插件：检查是不是解压后套了两层目录；`manifest.json`、`main.js`、`styles.css` 应直接位于 `.obsidian/plugins/trader-editor-tools/`。
-- 引用/缩进段落间距异常：升级到 0.1.3，停用再启用插件或重启 Obsidian；不需要调大 0.28em。独立 Tab 行请确认“Tab 缩进按知识行显示”开启。
+- 引用/缩进段落间距异常，或回车后光标不可见：升级到 0.1.4，停用再启用插件或重启 Obsidian；不需要调大 0.28em。独立 Tab 行请确认“Tab 缩进按知识行显示”开启。
 - 间距仍过大：关闭旧 WoLai/段落 CSS 片段，再点设置中的“恢复已验证 WoLai 基准”。关闭本插件排版开关不影响文字样式和图片功能。
 - 看起来像一段的旧笔记：源文本可能只有软换行而没有段落空行。使用格式化预览明确转换，不会自动改写。
 - 绘图不显示：检查 Excalidraw 是否在当前设备启用；等待异步渲染完成后再点击。

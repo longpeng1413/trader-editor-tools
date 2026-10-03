@@ -1,5 +1,5 @@
-const { ViewPlugin, Decoration, keymap } = require('@codemirror/view');
-const { RangeSetBuilder, Prec, EditorState } = require('@codemirror/state');
+const { ViewPlugin, Decoration } = require('@codemirror/view');
+const { RangeSetBuilder, EditorState } = require('@codemirror/state');
 const { editorInfoField } = require('obsidian');
 const { classify } = require('./markdown');
 
@@ -7,7 +7,7 @@ function layoutExtension(plugin) {
   const decorations = ViewPlugin.fromClass(class {
     constructor(view) { this.view = view; plugin.cmViews.add(view); plugin.bindDocument(view.dom.ownerDocument); this.decorations = this.build(); }
     update(update) {
-      if (update.docChanged || update.viewportChanged || update.transactions.length) this.decorations = this.build();
+      if (update.docChanged || update.viewportChanged || update.focusChanged || update.transactions.length) this.decorations = this.build();
     }
     destroy() { plugin.cmViews.delete(this.view); }
     build() {
@@ -18,6 +18,12 @@ function layoutExtension(plugin) {
       const info = view.state.field(editorInfoField,false);
       if (info?.getMode?.() === 'source' && info?.getState?.()?.source === true) return builder.finish();
       const doc = view.state.doc;
+      const editable = !view.state.facet(EditorState.readOnly);
+      const emptyDocument = !doc.toString().trim();
+      // Structural separators may collapse, but never an editable caret/selection
+      // line. Focus changes update decorations without changing document text.
+      const inputRanges = editable && (view.hasFocus || emptyDocument) ?
+        view.state.selection.ranges.map(r=>[doc.lineAt(r.from).number,doc.lineAt(r.to).number]) : [];
       const { kinds, lines, continuations, quotes, quoteBlanks, indentedCode } = classify(doc.toString());
       const tabRows=new Set();
       if(plugin.settings.tabKnowledgeLines) {
@@ -69,36 +75,16 @@ function layoutExtension(plugin) {
             }
           }
           if(kind==='heading') attrs.class+=` tet-h${Math.min(6,(lines[n-1].text.match(/^\s*(#+)/)?.[1] || '#').length)}`;
+          if((attrs.class.includes('tet-gap') || attrs.class.includes('tet-quote-gap')) && inputRanges.some(([from,to])=>n>=from&&n<=to)) attrs.class+=' tet-input-gap';
           builder.add(line.from,line.from,Decoration.line({attributes:attrs}));
         }
       }
       return builder.finish();
     }
   }, { decorations: value => value.decorations });
-  return [decorations, Prec.highest(keymap.of([{key:'Enter',run:view=>{
-    if(!plugin.settings.paragraphEnter || !plugin.settings.splitProseLines || view.state.selection.ranges.length!==1 || view.state.facet(EditorState.readOnly)) return false;
-    const info=view.state.field(editorInfoField,false);
-    if(!info?.file || info?.getState?.()?.source===true || info.file.path.match(/\.excalidraw(?:\.md)?$/i)) return false;
-    const selection=view.state.selection.main,line=view.state.doc.lineAt(selection.head);
-    if(!selection.empty || selection.head!==line.to || !line.text.trim() || /(?: {2,}|\\)$/.test(line.text)) return false;
-    const data=classify(view.state.doc.toString());
-    if(data.kinds[line.number-1]!=='prose') return false;
-    // User keystroke only: never rewrites opened notes. Native list/quote/code
-    // Enter handlers retain control. Existing blank separators are reused.
-    const tail=view.state.doc.sliceString(line.to);
-    if(!tail.trim()) {
-      const breaks=(tail.match(/\n/g)||[]).length;
-      const insert='\n'.repeat(Math.max(0,2-breaks));
-      view.dispatch({changes:insert?{from:line.to,insert}:undefined,selection:{anchor:line.to+2},scrollIntoView:true,userEvent:'input'});
-    } else {
-      const next=view.state.doc.line(line.number+1).text;
-      // Leave a separator on BOTH sides of a newly typed paragraph when
-      // subsequent content already exists. Caret must land after two breaks.
-      const insert=next.trim()?'\n\n\n':'\n\n';
-      view.dispatch({changes:{from:line.to,insert},selection:{anchor:line.to+2},scrollIntoView:true,userEvent:'input'});
-    }
-    return true;
-  }}]))];
+  // Do not register a keyboard handler. Enter/Shift+Enter/Tab/Backspace and
+  // native Markdown continuation/exit rules belong entirely to Obsidian.
+  return [decorations];
 }
 
 function isTabKnowledgeLine(text) { return /^ {0,3}\t\S|^ {0,3}\t\s+\S/.test(text); }

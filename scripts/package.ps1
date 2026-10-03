@@ -9,8 +9,9 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
   New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 }
 $manifest = Get-Content -LiteralPath (Join-Path $projectRoot 'manifest.json') -Raw | ConvertFrom-Json
-$installZip = Join-Path $outputRoot ('trader-editor-tools-' + $manifest.version + '-install.zip')
-$sourceZip = Join-Path $outputRoot ('trader-editor-tools-' + $manifest.version + '-source.zip')
+$packageName = $manifest.name -replace '[\\/:*?"<>|]', '-'
+$installZip = Join-Path $outputRoot ($packageName + '-' + $manifest.version + '-安装包.zip')
+$sourceZip = Join-Path $outputRoot ($packageName + '-' + $manifest.version + '-源码.zip')
 foreach ($zipPath in @($installZip, $sourceZip)) {
   if (Test-Path -LiteralPath $zipPath) { throw "ZIP already exists; keep it or rename it before packaging: $zipPath" }
 }

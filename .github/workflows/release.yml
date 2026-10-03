@@ -30,4 +30,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" manifest.json main.js styles.css versions.json dist/*.zip --verify-tag --title "Trader Editor Tools $RELEASE_TAG" --notes-file CHANGELOG.md
+          gh release create "$RELEASE_TAG" manifest.json main.js styles.css versions.json dist/*.zip --verify-tag --title "猛人obsidian编辑插件 $RELEASE_TAG" --notes-file CHANGELOG.md

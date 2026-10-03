@@ -67,7 +67,20 @@ async function setup(text,mode='live') {
     cm=new EditorView({parent:root,state:EditorState.create({doc:text,extensions:[editorInfoField.init(()=>info),history(),widgetField,...plugin.ext,EditorView.lineWrapping]})});
   } else {
     root.innerHTML=rendered(text);
-    for(const fn of plugin.post) fn(root,{sourcePath:file.path,getSectionInfo:()=>({text:store.get(file.path),lineStart:0,lineEnd:store.get(file.path).split('\n').length-1})});
+    const sections=new WeakMap();let offset=0,index=0;
+    for(const token of marked.lexer(text)) {
+      if(token.type!=='space') {
+        const node=root.children[index++];
+        if(node)sections.set(node,{lineStart:text.slice(0,offset).split('\n').length-1,lineEnd:text.slice(0,offset+token.raw.replace(/\n+$/,'').length).split('\n').length-1});
+      }
+      offset+=token.raw.length;
+    }
+    const ctx={sourcePath:file.path,getSectionInfo:node=>{
+      let current=node;while(current&&current.parentElement!==root&&current!==root)current=current.parentElement;
+      const section=sections.get(current);
+      return section ? {text:store.get(file.path),...section} : {text:store.get(file.path),lineStart:0,lineEnd:store.get(file.path).split('\n').length-1};
+    }};
+    for(const fn of plugin.post) fn(root,ctx);
   }
   window.fixture={plugin,app,file,info,root,cm,store,backups,notices,callbacks,text:()=>mode==='live'?cm.state.doc.toString():store.get(file.path),command:id=>plugin.commands.get(id).editorCallback(info.editor,info),undo:()=>undo(cm),redo:()=>redo(cm),excalidraw:value=>excalidraw=value};
   return true;

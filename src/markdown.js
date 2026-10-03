@@ -189,6 +189,24 @@ function classify(text, { splitLazyListLines = false } = {}) {
   return { lines, kinds, table, quotes, quoteBlanks, continuations, indentedCode };
 }
 
+/** Only plain, non-code source blanks participate. The final empty source
+ * position is a caret placeholder, not a saved blank line. */
+function blankSpacing(data) {
+  const rows = new Set(), runs = [];
+  const {lines,kinds}=data;
+  const limit=lines.length-(lines.at(-1)?.text==='' && lines.at(-1)?.eol==='' ? 1 : 0);
+  for(let i=0;i<limit;i++) if(kinds[i]==='blank') {
+    let end=i+1;while(end<limit && kinds[end]==='blank')end++;
+    const hasBefore=i>0,hasAfter=end<limit;
+    const extra=end-i-(hasBefore&&hasAfter ? 1 : hasBefore ? 1 : 0);
+    const first=end-extra;
+    for(let n=first;n<end;n++)rows.add(n);
+    if(extra>0)runs.push({from:i,to:end-1,before:hasBefore?i-1:null,after:hasAfter?end:null,extra});
+    i=end-1;
+  }
+  return {rows,runs};
+}
+
 function formatNote(text, { splitProseLines = true, looseLists = true, splitIndentedListParagraphs = false } = {}) {
   const { lines, kinds, quotes, continuations } = classify(text,{splitLazyListLines:splitProseLines});
   const eol = /\r\n/.test(text) ? '\r\n' : '\n';
@@ -340,6 +358,13 @@ function relativeTarget(filePath, notePath) {
   return [...base.map(()=>'..'), ...dest].map(p=>encodeURIComponent(p)).join('/');
 }
 
+function imageDimensions(token) {
+  const size=token.type==='wiki' ? token.parts.slice(1).find(p=>/^\d+(?:x\d+)?$/.test(p.trim())) : token.alt?.match(/(?:^|\\?\|)(\d+(?:x\d+)?)$/)?.[1];
+  if(!size)return null;
+  const [width,height]=size.trim().split('x').map(Number);
+  return {width,height:height??null};
+}
+
 function resizedToken(token, width, height = null, options = {}) {
   width = Math.round(width);
   if (!Number.isFinite(width) || width < 24 || width > 8192) throw new Error('图片宽度必须在 24–8192 px 之间');
@@ -399,4 +424,4 @@ function dragSize(initial, dx, dy, corner, free, maxWidth = 4096) {
   return { width: Math.round(w), height: Math.round(w/ratio) };
 }
 
-module.exports = { linesOf, splitPipes, classify, formatNote, scanImages, resizedToken, sameDocumentPatch, dragSize, isExcalidraw, isImageTarget, relativeTarget, tableCellRange };
+module.exports = { linesOf, splitPipes, classify, blankSpacing, formatNote, scanImages, imageDimensions, resizedToken, sameDocumentPatch, dragSize, isExcalidraw, isImageTarget, relativeTarget, tableCellRange };

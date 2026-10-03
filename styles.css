@@ -92,7 +92,7 @@ body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-
   margin-block: 0 !important;
   padding-block: 0 !important;
 }
-body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-gap,.tet-quote-gap):not(.tet-input-gap) {
+body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-gap,.tet-quote-gap):not(.tet-input-gap):not(.tet-extra-blank) {
   height: 0 !important;
   min-height: 0 !important;
   line-height: 0 !important;
@@ -102,13 +102,22 @@ body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-
 }
 /* A live input line must have room for its native caret, indentation and quote
    prefix. This is temporary editing space, not another persistent block gap. */
-body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line.tet-input-gap {
+body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line:is(.tet-input-gap,.tet-extra-blank) {
   height: auto !important;
   min-height: calc(1em * var(--tet-line-height)) !important;
   line-height: var(--tet-line-height) !important;
   font-size: inherit !important;
   margin-block: 0 !important;
   padding-block: 0 !important;
+}
+body.tet-enabled .tet-extra-gap {
+  display: block;
+  height: calc(var(--tet-extra-lines) * 1em * var(--tet-line-height));
+  min-height: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0;
+  pointer-events: none;
 }
 body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line.tet-block-start { padding-top: var(--tet-block-padding) !important; }
 body.tet-enabled .markdown-source-view.mod-cm6.is-live-preview .cm-line.tet-block-end { padding-bottom: var(--tet-block-padding) !important; }

@@ -1,7 +1,7 @@
 const { Plugin, PluginSettingTab, Setting, Modal, Notice, MarkdownView, normalizePath } = require('obsidian');
-const { formatNote, scanImages, isImageTarget, isExcalidraw } = require('./markdown');
+const { formatNote, scanImages, imageDimensions, isImageTarget, isExcalidraw } = require('./markdown');
 const { captureSelection, commitStyle, HEX } = require('./text-style');
-const { layoutExtension, applyLayout, decorateTabKnowledge, refreshTabKnowledge } = require('./layout');
+const { layoutExtension, applyLayout, decorateTabKnowledge, refreshTabKnowledge, decorateExtraBlankLines, refreshExtraBlankLines } = require('./layout');
 const { ImageResizeManager, cleanTarget } = require('./image-resize');
 
 const DEFAULTS = {
@@ -10,6 +10,7 @@ const DEFAULTS = {
   listIndent:1.8, imagePadding:0.28, tablePadding:0.28, splitProseLines:true, looseLists:true,
   splitIndentedListParagraphs:true,
   tabKnowledgeLines:true,
+  preserveExtraBlankLines:true,
   backupEnabled:true, imageResize:true, readingResize:true, freeResize:false, maxImageWidth:4096,
   colors:[
     {name:'风险红',text:'#d64545',background:'#ffd9dc'},
@@ -99,8 +100,8 @@ class SizeModal extends Modal {
     const el=this.contentEl; el.classList.add('tet-modal');
     el.createEl('h2',{text:'设置图片尺寸'});
     el.createEl('p',{text:this.source.token.target,cls:'tet-muted'});
-    const current=this.source.token.raw.match(/\\?\|(\d+)(?:x(\d+))?(?=\\?\||\]\])/);
-    let width=current?.[1] || '320', height=current?.[2] || '';
+    const current=imageDimensions(this.source.token);
+    let width=String(current?.width ?? 320), height=current?.height===null || !current ? '' : String(current.height);
     new Setting(el).setName('宽度（px）').addText(t=>t.setValue(width).onChange(v=>width=v));
     new Setting(el).setName('高度（px）').setDesc('留空则保持原比例；输入高度则保存宽×高。').addText(t=>t.setValue(height).onChange(v=>height=v));
     new Setting(el).addButton(b=>b.setButtonText('保存到笔记').setCta().onClick(async()=>{
@@ -138,7 +139,8 @@ class TraderSettings extends PluginSettingTab {
     toggle('格式化：逐行分段','普通正文每个物理换行独立成段；顶层列表后未缩进正文也独立成段。原笔记用软换行延续列表或手工折行时请关闭。自动折行、硬换行和嵌套列表保留。','splitProseLines');
     toggle('格式化：分隔顶层列表项','为顶层兄弟列表项增加空行；嵌套列表内容保持原样。','looseLists');
     toggle('格式化：分隔列表内缩进正文','为列表项后的普通缩进正文补空行，保留原缩进和嵌套层级。代码、引用、多行 HTML / 强调与硬换行不拆。先检查预览。','splitIndentedListParagraphs');
-    new Setting(el).setName('原生编辑逻辑').setDesc('本插件不接管 Enter、Shift+Enter、Tab 或 Backspace；缩进、引用和列表延续由 Obsidian 原生处理。光标所在的空白输入行保持可见，其他段落分隔空行仍紧凑显示。');
+    toggle('保留连续空行的额外留白','段落间第一个空行用于分段，仍紧凑显示；每多一个普通空行额外保留一行高度。阅读/PDF 同步增强；不改源码。代码与引用内部空行不套用此规则。','preserveExtraBlankLines');
+    new Setting(el).setName('原生编辑逻辑').setDesc('本插件不接管 Enter、Shift+Enter、Tab 或 Backspace；缩进、引用和列表延续由 Obsidian 原生处理。光标所在的空白输入行保持可见。');
     toggle('Tab 缩进按知识行显示','独立 Tab 缩进块中，每个物理行都使用与列表项相同的块间距；自动折行仍紧凑。阅读/PDF 同步显示。代码围栏和空格缩进代码不受影响；若 Tab 本来表示程序代码，请关闭。只改变显示，不写正文。','tabKnowledgeLines');
     toggle('保存原文备份','格式化、阅读模式图片写回前，在本插件 backups 目录保存原文。备份不会自动删除。','backupEnabled');
     new Setting(el).setName('备份位置').setDesc(`${p.app.vault.configDir}/plugins/${p.manifest.id}/backups/`);
@@ -179,6 +181,7 @@ module.exports = class TraderEditorTools extends Plugin {
     this.registerEditorExtension(layoutExtension(this));
     this.registerMarkdownPostProcessor((el,ctx)=>this.images.annotate(el,ctx));
     this.registerMarkdownPostProcessor((el,ctx)=>decorateTabKnowledge(el,ctx,this.settings));
+    this.registerMarkdownPostProcessor((el,ctx)=>decorateExtraBlankLines(el,ctx,this.settings));
     this.addSettingTab(new TraderSettings(this.app,this));
     this.addCommand({id:'format-note',name:'格式化当前笔记（预览 / 备份）',editorCallback:(editor,info)=>{
       if(!info.file) return new Notice('请先保存笔记');
@@ -228,7 +231,7 @@ module.exports = class TraderEditorTools extends Plugin {
   bindDocument(doc) { this.documents.add(doc);applyLayout(doc,this.settings);this.images.bind(doc); }
   async saveSettings() {
     await this.saveData(this.settings);
-    for(const doc of this.documents) {applyLayout(doc,this.settings);refreshTabKnowledge(doc,this.settings);}
+    for(const doc of this.documents) {applyLayout(doc,this.settings);refreshTabKnowledge(doc,this.settings);refreshExtraBlankLines(doc,this.settings);}
     for(const view of this.cmViews) view.dispatch({});
   }
   excalidrawAvailable() {
@@ -256,7 +259,7 @@ module.exports = class TraderEditorTools extends Plugin {
   }
   onunload() {
     this.images?.destroy();
-    for(const doc of this.documents || []) {refreshTabKnowledge(doc,null);doc.body.classList.remove('tet-enabled');doc.getElementById('tet-layout-vars')?.remove();}
+    for(const doc of this.documents || []) {refreshTabKnowledge(doc,null);refreshExtraBlankLines(doc,null);doc.body.classList.remove('tet-enabled');doc.getElementById('tet-layout-vars')?.remove();}
     this.cmViews?.clear();
   }
 };

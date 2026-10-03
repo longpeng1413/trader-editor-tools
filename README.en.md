@@ -6,7 +6,7 @@ An MIT-licensed Obsidian plugin for compact Markdown layout, persistent image re
 
 ## Install
 
-Download `猛人obsidian编辑插件-0.1.4-安装包.zip` from Releases. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
+Download `trader-editor-tools-0.1.5-install.zip` from Releases (the local Chinese installer is `猛人obsidian编辑插件-0.1.5-安装包.zip`). GitHub assets use distinct ASCII suffixes to avoid normalized-name collisions. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
 
 ```text
 VAULT/.obsidian/plugins/trader-editor-tools/
@@ -38,6 +38,10 @@ Standard Markdown treats standalone Tab indentation as code, not paragraphs. Thi
 Version 0.1.4 restores **native Obsidian editing**. The plugin no longer registers an Enter handler or inserts blank paragraph separators on keystrokes. Enter, Shift+Enter, Tab and Backspace belong to the host editor; quote/list/indent continuation and exit follow Obsidian's settings. The old `paragraphEnter` setting is ignored and its toggle removed. To create a standard paragraph, use a blank line or explicitly confirm the formatting preview.
 
 While editing, blank, Tab-only and empty quote-prefix rows containing the caret/selection remain visible and editable. Other structural separators still collapse; moving away or blurring the editor restores compact display. An empty note remains clickable. This temporary input space does not modify text or change Reading/PDF spacing. Source mode remains native.
+
+Version 0.1.5 preserves intentional **multiple plain blank lines**, enabled by default. Between blocks, one blank remains a compact separator; each additional blank adds one line-height of persistent space in Live Preview, Reading View and print styles. Thus two Enter presses followed by prose create a normal paragraph; three presses add one extra blank row. Formatting retains existing blank runs. The final empty caret position is not counted as a saved blank. Native Enter and undo remain untouched.
+
+Reading spacers use source section line positions, not text matching, and are removed when disabled/unloaded. Unknown third-party renderers without reliable source positions are left unchanged. Code (including Tab knowledge blocks), YAML, HTML and quote/Callout internal blank rows are protected. No private syntax or document writes are introduced. Standard Markdown renderers collapse extra blanks when the plugin is disabled; the source still retains them. Native Reading/Live Preview were checked on Obsidian 1.13.7; print is covered by browser regression, not a fresh complete native PDF export.
 
 ## Safety and limits
 

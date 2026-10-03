@@ -71,6 +71,26 @@ test('ordinary Markdown image and filename with spaces keep readable destination
   await drag('img',60,0);
   assert.equal(await page.evaluate(()=>fixture.text()),'![图表|260](<附件/中文 图片 (1).png> "标题")');
 });
+
+test('image size command prefills existing Markdown width and height, saves and undoes safely',async()=>{
+  const source='![图|280x150](<附件/中文 图片.png> "标题")';await setup(source);
+  await page.evaluate(()=>{fixture.cm.dispatch({selection:{anchor:5}});fixture.command('set-image-size');});
+  const inputs=page.locator('.modal input[type=text]');
+  assert.equal(await inputs.nth(0).inputValue(),'280');assert.equal(await inputs.nth(1).inputValue(),'150');
+  await inputs.nth(0).fill('300');await page.getByRole('button',{name:'保存到笔记'}).click();
+  assert.equal(await page.evaluate(()=>fixture.text()),'![图|300x150](<附件/中文 图片.png> "标题")');
+  await page.evaluate(()=>fixture.undo());assert.equal(await page.evaluate(()=>fixture.text()),source);
+});
+
+test('stale format preview and text palette never overwrite a concurrent edit',async()=>{
+  await setup('第一行\n第二行');await page.evaluate(()=>fixture.command('format-note'));
+  await page.evaluate(()=>fixture.cm.dispatch({changes:{from:fixture.cm.state.doc.length,insert:'新'}}));
+  await page.getByRole('button',{name:'应用格式化'}).click();
+  assert.equal(await page.evaluate(()=>fixture.text()),'第一行\n第二行新');assert.equal(await page.evaluate(()=>fixture.backups.length),0);
+  await setup('风险预算');await page.evaluate(()=>{fixture.cm.dispatch({selection:{anchor:0,head:4}});fixture.command('style-color');});
+  await page.evaluate(()=>fixture.cm.dispatch({changes:{from:fixture.cm.state.doc.length,insert:'新'}}));
+  await page.getByRole('button',{name:'风险红'}).click();assert.equal(await page.evaluate(()=>fixture.text()),'风险预算新');
+});
 test('duplicate images resize only clicked occurrence in reading table',async()=>{
   await setup('| 项 | 图 |\n| --- | --- |\n| A | ![[图.png]] |\n| B | ![[图.png]] |','reading');
   await page.locator('img').nth(1).click();await page.waitForSelector('.tet-se');
@@ -213,7 +233,8 @@ test('caret blank, Tab-only and quote-prefix rows stay visible and editable with
     await page.evaluate(()=>fixture.undo());assert.equal(await page.evaluate(()=>fixture.text()),text);
     await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:fixture.cm.state.doc.length}}));
     assert.equal(await active.count(),0);
-    assert.equal(await page.locator('.cm-line').nth(2).evaluate(n=>n.getBoundingClientRect().height),0);
+    const persistent=await page.locator('.cm-line').nth(2).evaluate(n=>n.getBoundingClientRect().height);
+    if(!prefix.trim())assert.ok(persistent>25.9);else assert.equal(persistent,0);
   }
 });
 test('blank selections reveal input lines, blur collapses them and an empty document stays clickable',async()=>{
@@ -231,6 +252,63 @@ test('blank selections reveal input lines, blur collapses them and an empty docu
   await page.locator('.cm-content').focus();await page.keyboard.type('new');assert.equal(await page.evaluate(()=>fixture.text()),'new');
   await setup('正文\n');await page.evaluate(()=>{fixture.info.getState=()=>({source:true});fixture.cm.dispatch({selection:{anchor:3}});});await page.locator('.cm-content').focus();
   assert.equal(await page.locator('.tet-input-gap').count(),0);assert.ok(await page.locator('.cm-line').last().evaluate(n=>n.getBoundingClientRect().height)>0);
+});
+
+test('multiple plain blanks retain exactly N-1 rows in live, reading and print',async()=>{
+  for(let count=1;count<=4;count++) for(const mode of ['live','reading']) {
+    const text='第一段'+ '\n'.repeat(count+1)+'第二段';await setup(text,mode);
+    if(mode==='live') {
+      assert.equal(await page.locator('.tet-extra-blank').count(),count-1);
+      const heights=await page.locator('.tet-gap').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect().height));
+      assert.ok(heights[0]===0);for(const h of heights.slice(1))assert.ok(Math.abs(h-25.92)<.05);
+    } else {
+      assert.equal(await page.locator('.tet-extra-gap').count(),count>1?1:0);
+      if(count>1)assert.ok(Math.abs((await page.locator('.tet-extra-gap').evaluate(n=>n.getBoundingClientRect().height))-(count-1)*25.92)<.05);
+      await page.emulateMedia({media:'print'});
+      if(count>1)assert.ok(Math.abs((await page.locator('.tet-extra-gap').evaluate(n=>n.getBoundingClientRect().height))-(count-1)*25.92)<.05);
+      await page.emulateMedia({media:'screen'});
+    }
+    assert.equal(await page.evaluate(()=>fixture.text()),text);
+    assert.equal(await page.evaluate(()=>fixture.backups.length),0);
+  }
+});
+
+test('extra spaces survive native Enter/undo, focus changes, toggle and unload',async()=>{
+  await setup('正文');await page.evaluate(()=>fixture.cm.dispatch({selection:{anchor:fixture.text().length}}));
+  await page.locator('.cm-content').focus();for(let n=0;n<4;n++)await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\n\n\n');
+  assert.equal(await page.locator('.tet-extra-blank').count(),2);
+  await page.keyboard.type('后文');await page.evaluate(()=>fixture.cm.contentDOM.blur());
+  assert.equal(await page.locator('.tet-extra-blank').count(),2);
+  await page.evaluate(async()=>{fixture.plugin.settings.preserveExtraBlankLines=false;await fixture.plugin.saveSettings();});
+  assert.equal(await page.locator('.tet-extra-blank').count(),0);
+  await setup('正文\n\n\n后文','reading');
+  for(let i=0;i<3;i++)await page.evaluate(()=>fixture.plugin.saveSettings());
+  assert.equal(await page.locator('.tet-extra-gap').count(),1);
+  await page.evaluate(async()=>{fixture.plugin.settings.preserveExtraBlankLines=false;await fixture.plugin.saveSettings();});
+  assert.equal(await page.locator('.tet-extra-gap').count(),0);
+  await page.evaluate(async()=>{fixture.plugin.settings.preserveExtraBlankLines=true;await fixture.plugin.saveSettings();});
+  assert.equal(await page.locator('.tet-extra-gap').count(),1);
+  await page.evaluate(()=>fixture.plugin.onunload());assert.equal(await page.locator('.tet-extra-gap').count(),0);
+  assert.equal(await page.evaluate(()=>fixture.text()),'正文\n\n\n后文');
+});
+
+test('reading gaps use source positions for repeated paragraphs, lists and protected code',async()=>{
+  const text='相同\n\n\n相同\n\n- A\n\n- B\n\n\n相同\n\n```\n\n\n代码\n```';
+  await setup(text,'reading');assert.equal(await page.locator('.tet-extra-gap').count(),2);
+  assert.equal(await page.locator('pre .tet-extra-gap,li .tet-extra-gap').count(),0);
+  assert.equal(await page.locator('li').count(),2);
+  assert.equal(await page.evaluate(()=>fixture.text()),text);
+});
+
+test('leading/trailing extra whitespace matches reading, and formatting never removes it',async()=>{
+  const text='\n\n前文\n\n\n后文\n\n\n';
+  for(const mode of ['live','reading']) {
+    await setup(text,mode);
+    const heights=await page.locator(mode==='live'?'.tet-extra-blank':'.tet-extra-gap').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect().height));
+    assert.ok(Math.abs(heights.reduce((a,b)=>a+b,0)-4*25.92)<.1);
+    assert.equal(await page.evaluate(()=>formatNote(fixture.text()).text),text);
+  }
 });
 test('quoted paragraph separators collapse and nested lists retain equal knowledge-block gaps',async()=>{
   for(const mode of ['live','reading']) {

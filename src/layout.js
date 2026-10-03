@@ -1,7 +1,7 @@
 const { ViewPlugin, Decoration } = require('@codemirror/view');
 const { RangeSetBuilder, EditorState } = require('@codemirror/state');
 const { editorInfoField } = require('obsidian');
-const { classify } = require('./markdown');
+const { classify, blankSpacing } = require('./markdown');
 
 function layoutExtension(plugin) {
   const decorations = ViewPlugin.fromClass(class {
@@ -25,6 +25,7 @@ function layoutExtension(plugin) {
       const inputRanges = editable && (view.hasFocus || emptyDocument) ?
         view.state.selection.ranges.map(r=>[doc.lineAt(r.from).number,doc.lineAt(r.to).number]) : [];
       const { kinds, lines, continuations, quotes, quoteBlanks, indentedCode } = classify(doc.toString());
+      const extraRows=plugin.settings.preserveExtraBlankLines ? blankSpacing({kinds,lines}).rows : new Set();
       const tabRows=new Set();
       if(plugin.settings.tabKnowledgeLines) {
         const keys=tabKnowledgeKeys(doc.toString());
@@ -76,6 +77,7 @@ function layoutExtension(plugin) {
           }
           if(kind==='heading') attrs.class+=` tet-h${Math.min(6,(lines[n-1].text.match(/^\s*(#+)/)?.[1] || '#').length)}`;
           if((attrs.class.includes('tet-gap') || attrs.class.includes('tet-quote-gap')) && inputRanges.some(([from,to])=>n>=from&&n<=to)) attrs.class+=' tet-input-gap';
+          if(extraRows.has(n-1)) attrs.class+=' tet-extra-blank';
           builder.add(line.from,line.from,Decoration.line({attributes:attrs}));
         }
       }
@@ -147,6 +149,52 @@ function refreshTabKnowledge(doc,settings) {
   }
 }
 
+const blankContexts=new WeakMap();
+// Native reading renders one section at a time, all with the same full source.
+// Retain only the latest source analysis to avoid reparsing a long note N times.
+let blankCache=null;
+function cachedBlankRuns(text) {
+  if(blankCache?.text!==text)blankCache={text,runs:blankSpacing(classify(text)).runs};
+  return blankCache.runs;
+}
+function decorateExtraBlankLines(el,ctx,settings) {
+  // LP owns its own source lines; embedded widgets must not duplicate gaps.
+  if(el.closest('.markdown-source-view'))return;
+  blankContexts.set(el,ctx);el.classList.add('tet-spacing-root');
+  for(const spacer of el.querySelectorAll('.tet-extra-gap'))spacer.remove();
+  if(!settings?.layoutEnabled || !settings.preserveExtraBlankLines)return;
+  // Section bounds, not rendered text matching, identify repeated paragraphs.
+  const children=[...el.children].filter(n=>!n.classList.contains('tet-extra-gap'));
+  const nodes=children.length ? children : [el];
+  const used=new Set();
+  for(const node of nodes) {
+    let section;try{section=ctx.getSectionInfo(node);}catch{continue;}
+    if(!section?.text || !Number.isInteger(section.lineStart) || !Number.isInteger(section.lineEnd))continue;
+    const runs=cachedBlankRuns(section.text);
+    for(const run of runs) {
+      const before=run.after===section.lineStart;
+      const after=run.after===null && run.before===section.lineEnd;
+      const key=run.from+':'+run.to;
+      if((!before&&!after)||used.has(key))continue;
+      used.add(key);
+      const spacer=el.ownerDocument.createElement('div');spacer.className='tet-extra-gap';
+      spacer.setAttribute('aria-hidden','true');spacer.style.setProperty('--tet-extra-lines',String(run.extra));
+      // Keep native section ownership and avoid modifying note source.
+      if(node===el) {if(before)el.prepend(spacer);else el.append(spacer);}
+      else if(before)node.before(spacer);else node.after(spacer);
+    }
+  }
+}
+
+function refreshExtraBlankLines(doc,settings) {
+  for(const el of doc.querySelectorAll('.tet-spacing-root')) {
+    const ctx=blankContexts.get(el);
+    if(settings&&ctx)decorateExtraBlankLines(el,ctx,settings);
+    else {for(const spacer of el.querySelectorAll('.tet-extra-gap'))spacer.remove();el.classList.remove('tet-spacing-root');}
+  }
+  if(!settings)blankCache=null;
+}
+
 function applyLayout(doc, settings) {
   doc.body.classList.toggle('tet-enabled',settings.layoutEnabled);
   const vars = {
@@ -167,4 +215,4 @@ function applyLayout(doc, settings) {
   style.textContent = `:root { ${Object.entries(vars).map(([k,v])=>`${k}: ${v};`).join(' ')} }`;
 }
 
-module.exports = { layoutExtension, applyLayout, decorateTabKnowledge, refreshTabKnowledge, tabKnowledgeKeys };
+module.exports = { layoutExtension, applyLayout, decorateTabKnowledge, refreshTabKnowledge, tabKnowledgeKeys, decorateExtraBlankLines, refreshExtraBlankLines };

@@ -1,7 +1,37 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {classify,formatNote,scanImages,resizedToken,sameDocumentPatch,splitPipes,dragSize,tableCellRange}=require('../src/markdown');
+const {classify,blankSpacing,formatNote,scanImages,imageDimensions,resizedToken,sameDocumentPatch,splitPipes,dragSize,tableCellRange}=require('../src/markdown');
 const {stylePatch}=require('../src/text-style');
+
+test('one separator collapses; each additional saved plain blank stays visible',()=>{
+  for(let count=1;count<=4;count++) {
+    const text='前文'+ '\n'.repeat(count+1)+'后文';
+    const gaps=blankSpacing(classify(text));
+    assert.equal(gaps.rows.size,count-1);
+    assert.equal(gaps.runs.reduce((n,r)=>n+r.extra,0),count-1);
+    assert.equal(formatNote(text).text,text);
+    assert.equal(blankSpacing(classify(text.replace(/\n/g,'\r\n'))).rows.size,count-1);
+  }
+  assert.equal(blankSpacing(classify('前文\n')).rows.size,0);
+  assert.equal(blankSpacing(classify('前文\n\n')).rows.size,0);
+  assert.equal(blankSpacing(classify('前文\n\n\n')).rows.size,1);
+  assert.equal(blankSpacing(classify('\n\n正文')).rows.size,2);
+});
+
+test('extra-blank calculation does not reinterpret YAML, fences, HTML, quotes or indented code',()=>{
+  for(const text of ['---\n\n\na: 1\n---','```\n\n\n```','<div>\n\n</div>','> 引用\n>\n>\n> 续行','    code\n\n\n    more']) {
+    assert.equal(blankSpacing(classify(text)).rows.size,0,text);
+  }
+});
+
+test('image dimension input reads wiki, Markdown, references and escaped table alt safely',()=>{
+  for(const source of ['![[图.png|280x150]]','![图|280x150](<附件/图.png>)','| 图 |\n| --- |\n| ![图\\|280x150](图.png) |','![图|280x150][id]\n\n[id]: 图.png']) {
+    assert.deepEqual(imageDimensions(scanImages(source)[0]),{width:280,height:150});
+  }
+  assert.deepEqual(imageDimensions(scanImages('![280](图.png)')[0]),{width:280,height:null});
+  assert.equal(imageDimensions(scanImages('![[图.png|别名280]]')[0]),null);
+  assert.equal(imageDimensions(scanImages('![图](图片280x150.png)')[0]),null);
+});
 
 test('prose paragraphs, heading, image and top-level list acquire standard blank lines',()=>{
   const input='# 计划\n风险预算\n执行规则\n![[图.png]]\n- 入场\n- 出场\n';

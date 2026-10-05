@@ -6,7 +6,7 @@ An MIT-licensed Obsidian plugin for compact Markdown layout, persistent image re
 
 ## Install
 
-Download `trader-editor-tools-0.1.5-install.zip` from Releases (the local Chinese installer is `猛人obsidian编辑插件-0.1.5-安装包.zip`). GitHub assets use distinct ASCII suffixes to avoid normalized-name collisions. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
+Download `trader-editor-tools-0.1.6-install.zip` from Releases (the local Chinese installer is `猛人obsidian编辑插件-0.1.6-安装包.zip`). GitHub assets use distinct ASCII suffixes to avoid normalized-name collisions. Extract the inner `trader-editor-tools` folder into **your vault**, not the Obsidian program directory:
 
 ```text
 VAULT/.obsidian/plugins/trader-editor-tools/
@@ -51,7 +51,15 @@ Formatting is conservative, not a complete Markdown parser/reflow engine. If a n
 
 Windows / Obsidian 1.13.7 / default theme / Excalidraw 2.27.3 have native testing evidence. Other themes, complex HTML and third-party rendering variants may differ. Android/iOS installation is permitted by the manifest, but **mobile touch and keyboard behavior have not been tested on real devices**. There is no mobile floating toolbar in this version.
 
-Text styling is intended for single-paragraph selections. It is not a full rich-text editor; Markdown inside HTML and partially selected existing markup may render differently. Free height is renderer-dependent for some drawing formats; proportional width is recommended.
+Version 0.1.6 merges independent color, background and underline properties into one owned span per semantic text run, outside of which native Markdown delimiters remain intact:
+
+```markdown
+**<span data-mengren-style="1" style="color: #d64545; background-color: #ffe1bd; text-decoration: underline;">Important</span>**
+```
+
+Changing a property updates it without nested visual wrappers. Separate clear-color, clear-highlight, clear-underline and clear-all commands preserve native emphasis, strike and links. Removing the last property unwraps the span. Live Preview HTML widgets receive source-derived semantic display classes; Reading/PDF use native Markdown parsing. Highlights never silently change the foreground: choose a suitable color yourself on dark themes. Marked is bundled; see [third-party notices](THIRD-PARTY-NOTICES.md).
+
+Styling protects inline code, wiki links/embeds, escapes and link targets. Mixed selections leave those bytes unchanged; selections containing only protected syntax are rejected. Use one physical line and table cell at a time. Foreign attributes/CSS are retained; malformed HTML is rejected. Exact legacy wrapper forms are recognized only on explicit editing, but indistinguishable hand-written legacy tags have ambiguous ownership. Different semantic runs or partial selections may need sibling spans, not nested spans. This is not an unrestricted rich-text editor. Free image height is renderer-dependent; proportional width is recommended.
 
 ## Mobile use
 

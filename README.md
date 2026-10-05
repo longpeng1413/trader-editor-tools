@@ -1,14 +1,14 @@
 # 猛人obsidian编辑插件
 
-版本 **0.1.5**，MIT 开源。完整可安装插件，不需要安装 Node.js，不需要编译。优先支持 Windows / Obsidian 1.13.x / Live Preview；手机可安装，但尚未真机验收。
+版本 **0.1.6**，MIT 开源。完整可安装插件，不需要安装 Node.js，不需要编译。优先支持 Windows / Obsidian 1.13.x / Live Preview；手机可安装，但尚未真机验收。
 
 [English](README.en.md) · [下载发布版](https://github.com/longpeng1413/trader-editor-tools/releases/latest) · [更新记录](CHANGELOG.md) · [开发指南](CONTRIBUTING.md) · [架构](docs/ARCHITECTURE.md) · [测试记录](TESTING.md) · [问题反馈](https://github.com/longpeng1413/trader-editor-tools/issues)
 
-0.1.5 新增 **保留连续空行的额外留白**：段落间第一个普通空行仍紧凑显示，每多一个空行额外保留一行高度，光标离开后不再全部收起。Live Preview、阅读和打印样式同步增强。继续保留 0.1.4 恢复的原生回车逻辑；升级不会自动修改旧笔记。
+0.1.6 重构 **独立叠加文字样式**：颜色、高亮、下划线统一合并到一个视觉 span，分别增加、修改或清除；保留 Markdown 粗体、斜体、删除线和链接语义，并修复 Live Preview 的 HTML 组件不显示外层粗体的问题。继续保留原生回车和连续空行留白；升级不会自动修改旧笔记。
 
 ## 安装到另一台电脑
 
-1. 从 Releases 下载并解压 `trader-editor-tools-0.1.5-install.zip`，得到 `trader-editor-tools` 文件夹。本地中文安装包名为 `猛人obsidian编辑插件-0.1.5-安装包.zip`；内容相同。GitHub 附件使用不同的英文后缀，避免中文名被平台规范化后冲突。
+1. 从 Releases 下载并解压 `trader-editor-tools-0.1.6-install.zip`，得到 `trader-editor-tools` 文件夹。本地中文安装包名为 `猛人obsidian编辑插件-0.1.6-安装包.zip`；内容相同。GitHub 附件使用不同的英文后缀，避免中文名被平台规范化后冲突。
 2. 将整个文件夹放入**笔记库**的 `.obsidian/plugins/`。不是 Obsidian 程序安装目录。例如：`你的笔记库/.obsidian/plugins/trader-editor-tools/main.js`。
 3. 打开 Obsidian → 设置 → 第三方插件，允许社区插件后，找到 **猛人obsidian编辑插件** 并启用。未出现时重启 Obsidian。
 4. 设置 → 猛人obsidian编辑插件调整参数。设置 → 快捷键，搜索 `猛人`，为需要的命令自行绑定按键。
@@ -112,17 +112,19 @@
 - 命令面板搜索插件名，运行颜色、高亮、切换下划线、清除样式命令。
 - 常用颜色在设置页自定义。前 9 个槽位各有独立颜色/高亮命令，可在 Obsidian 快捷键页绑定，例如 Alt+1。插件不强占默认快捷键。
 
-正文保存为可读、标准 HTML：
+Markdown 原生格式负责语义，插件只添加视觉层。以粗体同时使用三种样式为例：
 
-```html
-<span style="color: #d64545;">风险</span>
-<mark style="background-color: #ffe1bd; color: #202020;">重点</mark>
-<u>下划线</u>
+```markdown
+**<span data-mengren-style="1" style="color: #d64545; background-color: #ffe1bd; text-decoration: underline;">重点</span>**
 ```
 
-可组合使用。高亮默认深色文字保证浅色背景可读，已设置的文字色保留。清除只处理本插件可明确识别的完整包裹，不删除无关 HTML。颜色使用 Hex，不依赖其他设备的颜色名称配置。
+再次改色直接更新 `color`，不再嵌套 span。右键和命令面板分别提供“清除文字颜色”“清除背景高亮”“清除下划线”和“清除全部插件文字样式（保留 Markdown）”；最后一个属性删掉后自动移除 span，以上示例恢复为 `**重点**`。三种属性彼此独立：高亮不再强制修改文字色；深色主题中使用浅色高亮时，请按需自行选择对比清晰的文字色。Hex 值不依赖另一台设备的配色名称。
 
-不跨段落/表格行包裹 HTML；先分段选择。复杂链接、Markdown 强调、部分选中的已有 HTML 要先查看源码结果；不是 Word 式富文本编辑器。HTML 内的 Markdown 在不同渲染器可能不会再次解析。停用插件仍可阅读，但隐藏样式语法、选择行为等由 Obsidian 自己处理。
+局部选中粗体内部文字也保留外部 `**`；标准 Markdown / 引用式链接保留目标和标题。跨不同语义或局部改色时，必要地生成多个兄弟 span，不嵌套视觉标签。同一行中相邻同属性片段会合并。
+
+为保护结构，行内代码、wiki 链接/嵌入、转义符和链接目标不插入 HTML；混合选区保留这些字节，只设置普通文字，纯受保护选区会提示拒绝。不要跨物理行、表格单元格或选择不闭合的 HTML。陌生 HTML 属性/CSS 不清除。新版用 `data-mengren-style="1"` 标明归属；旧版精确形状的 color span / mark / `<u>` 仅在执行样式命令时兼容规范化，无法区分与旧生成格式完全相同的手写标签。没有自动批量迁移。
+
+阅读和 PDF 原生解析 Markdown 语义；Live Preview 的 HTML 组件额外读取外层语义以恢复显示，不把粗体/斜体写进视觉 CSS。停用插件后阅读和导出仍保留标准 HTML 与 Markdown，Live Preview 的组件语义补偿随之停止。详见 [文字样式设计](docs/TEXT-STYLES.md)。
 
 ## 4. 手机与同步
 
@@ -144,7 +146,7 @@
 
 ## 完整工程与开发
 
-源代码 ZIP 包含 `src/`、`tests/`、`scripts/`、锁文件、示例与已编译文件。运行依赖由 Obsidian 提供；开发依赖仅用于构建与隔离测试。
+源代码 ZIP 包含 `src/`、`tests/`、`scripts/`、锁文件、示例与已编译文件。Obsidian / CodeMirror API 由宿主提供；Markdown 行内解析器 Marked 已编入 `main.js`，无需另外安装。[第三方许可证](THIRD-PARTY-NOTICES.md) 随安装包附带，其余开发依赖仅用于构建与隔离测试。
 
 ```sh
 pnpm install --frozen-lockfile

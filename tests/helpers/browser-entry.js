@@ -30,6 +30,11 @@ class PreviewWidget extends WidgetType {
   eq(other){return this.text===other.text;}
   toDOM(){const div=document.createElement('div');div.className='cm-embed-block markdown-rendered';div.innerHTML=rendered(this.text);return div;}
 }
+class InlineHTMLWidget extends WidgetType {
+  constructor(raw){super();this.raw=raw;}
+  eq(other){return this.raw===other.raw;}
+  toDOM(){const span=document.createElement('span');span.className='cm-html-embed';span.contentEditable='false';span.innerHTML=this.raw;return span;}
+}
 const widgetField=StateField.define({
   create:state=>widgets(state),update:(_,tr)=>widgets(tr.state),
   provide:field=>EditorView.decorations.from(field),
@@ -45,9 +50,13 @@ function widgets(state) {
       offset+=block.length+1;i=end;continue;
     }
     if(/^!\[/.test(lines[i])) marks.push(Decoration.replace({widget:new PreviewWidget(lines[i]),block:true}).range(offset,offset+lines[i].length));
+    else {
+      const regex=/<span data-mengren-style="1" style="[^"]*">[\s\S]*?<\/span>/g;let match;
+      while((match=regex.exec(lines[i])))marks.push(Decoration.replace({widget:new InlineHTMLWidget(match[0])}).range(offset+match.index,offset+regex.lastIndex));
+    }
     offset+=lines[i].length+1;
   }
-  return Decoration.set(marks);
+  return Decoration.set(marks,true);
 }
 
 async function setup(text,mode='live') {

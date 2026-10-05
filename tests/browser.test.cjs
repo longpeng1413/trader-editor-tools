@@ -5,6 +5,7 @@ const path=require('node:path');
 const {build}=require('esbuild');
 const {chromium}=require('playwright');
 let browser,page;
+const {cases:styleCases}=require('../scripts/style-fixture.cjs');
 const root=path.resolve(__dirname,'..'),work=path.join(root,'.test-artifacts');
 before(async()=>{
   fs.mkdirSync(work,{recursive:true});
@@ -123,15 +124,67 @@ test('color palette retains captured selection after modal focus',async()=>{
   await setup('风险预算');
   await page.evaluate(()=>{fixture.cm.dispatch({selection:{anchor:0,head:4}});fixture.command('style-color');fixture.cm.dispatch({selection:{anchor:0}});});
   await page.getByRole('button',{name:'风险红'}).click();
-  assert.equal(await page.evaluate(()=>fixture.text()),'<span style="color: #d64545;">风险预算</span>');
+  assert.equal(await page.evaluate(()=>fixture.text()),'<span data-mengren-style="1" style="color: #d64545;">风险预算</span>');
 });
 
 test('color followed by highlight and underline retains the visible selected text color',async()=>{
   await setup('风险预算');
   await page.evaluate(()=>{fixture.cm.dispatch({selection:{anchor:0,head:4}});fixture.command('color-slot-1');fixture.command('highlight-slot-2');fixture.command('style-underline');});
   const text=await page.evaluate(()=>fixture.text());await setup(text,'reading');
-  assert.equal(await page.locator('u').evaluate(n=>getComputedStyle(n).color),'rgb(214, 69, 69)');
-  assert.equal(await page.locator('mark').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 225, 189)');
+  const span=page.locator('span[data-mengren-style]');assert.equal(await span.count(),1);
+  assert.equal(await span.evaluate(n=>getComputedStyle(n).color),'rgb(214, 69, 69)');
+  assert.equal(await span.evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 225, 189)');
+  assert.ok(await span.evaluate(n=>getComputedStyle(n).textDecorationLine.includes('underline')));
+});
+
+test('requested semantic style matrix renders in reading and print with independent clears',async()=>{
+  for(const sample of styleCases()) {
+    await setup(sample.markdown,'reading');
+    const result=await page.locator('span[data-mengren-style],strong,em,del').evaluateAll(ns=>ns.map(n=>({tag:n.tagName,text:n.textContent,color:getComputedStyle(n).color,background:getComputedStyle(n).backgroundColor,underline:getComputedStyle(n).textDecorationLine})));
+    if(sample.expected.bold)assert.ok(result.some(n=>n.tag==='STRONG'),sample.name);
+    if(sample.expected.italic)assert.ok(result.some(n=>n.tag==='EM'),sample.name);
+    if(sample.expected.strike)assert.ok(result.some(n=>n.tag==='DEL'),sample.name);
+    if(sample.expected.link)assert.equal(await page.locator('a').getAttribute('href'),'https://example.com');
+    const span=page.locator('span[data-mengren-style]');
+    if(await span.count()) {
+      const css=await span.first().evaluate(n=>({color:getComputedStyle(n).color,background:getComputedStyle(n).backgroundColor,underline:getComputedStyle(n).textDecorationLine}));
+      if(sample.expected.color)assert.equal(css.color,sample.expected.color==='#d64545'?'rgb(214, 69, 69)':'rgb(54, 123, 214)',sample.name);
+      if(sample.expected.background)assert.equal(css.background,'rgb(255, 225, 189)',sample.name);
+      assert.equal(css.underline.includes('underline'),!!sample.expected.underline,sample.name);
+      await page.emulateMedia({media:'print'});
+      assert.deepEqual(await span.first().evaluate(n=>({color:getComputedStyle(n).color,background:getComputedStyle(n).backgroundColor,underline:getComputedStyle(n).textDecorationLine})),css);
+      await page.emulateMedia({media:'screen'});
+    }
+  }
+});
+
+test('native-style command flow retains selected bold semantics, independent clearing and undo',async()=>{
+  await setup('这里有 **重要内容** 和普通内容');
+  await page.evaluate(()=>{const i=fixture.text().indexOf('重要内容');fixture.cm.dispatch({selection:{anchor:i,head:i+4}});fixture.command('color-slot-1');fixture.command('highlight-slot-2');fixture.command('style-underline');});
+  const all=await page.evaluate(()=>fixture.text());assert.equal((all.match(/<span/g)||[]).length,1);assert.ok(all.includes('**<span'));
+  await page.evaluate(()=>fixture.command('style-clear-color'));let text=await page.evaluate(()=>fixture.text());assert.ok(!text.includes('color: #d64545'));assert.ok(text.includes('background-color'));assert.ok(text.includes('underline'));
+  await page.evaluate(()=>fixture.undo());assert.equal(await page.evaluate(()=>fixture.text()),all);
+  await page.evaluate(()=>fixture.command('style-clear'));assert.equal(await page.evaluate(()=>fixture.text()),'这里有 **重要内容** 和普通内容');
+});
+
+test('real CM HTML widgets inherit derived Markdown semantics, refresh on edit and clean up',async()=>{
+  for(const sample of styleCases()) {
+    await setup(sample.markdown);
+    const span=page.locator('.cm-html-embed span[data-mengren-style]');
+    if(!(await span.count()))continue;
+    await page.waitForTimeout(80);
+    if(sample.expected.bold)assert.equal(await span.first().evaluate(n=>getComputedStyle(n).fontWeight),'600',sample.name);
+    if(sample.expected.italic)assert.equal(await span.first().evaluate(n=>getComputedStyle(n).fontStyle),'italic',sample.name);
+    if(sample.expected.strike)assert.ok(await span.first().evaluate(n=>getComputedStyle(n).textDecorationLine.includes('line-through')),sample.name);
+    assert.equal(await page.evaluate(()=>fixture.text()),sample.markdown);
+  }
+  const span='<span data-mengren-style="1" style="text-decoration: underline;">重要内容</span>';
+  await setup('~~**'+span+'**~~');await page.waitForTimeout(80);
+  assert.equal(await page.locator('[data-mengren-style]').evaluate(n=>getComputedStyle(n).textDecorationLine),'underline line-through');
+  await page.evaluate(()=>fixture.cm.dispatch({changes:[{from:0,to:4},{from:fixture.cm.state.doc.length-4,to:fixture.cm.state.doc.length}]}));
+  await page.waitForFunction(()=>!document.querySelector('[data-mengren-style]').classList.contains('tet-native-strong'));
+  assert.equal(await page.locator('[data-mengren-style]').evaluate(n=>getComputedStyle(n).fontWeight),'400');
+  assert.equal(await page.locator('[data-mengren-style]').evaluate(n=>getComputedStyle(n).textDecorationLine),'underline');
 });
 test('settings render without unsupported menu APIs; variables carry into print',async()=>{
   await setup('# 交易计划\n\n第一段自动折行时使用紧凑行距。\n\n第二段。\n\n- 入场\n\n- 出场\n\n| 场景 | 图片 |\n| --- | --- |\n| 风险 | ![[图.png\\|200]] |','reading');

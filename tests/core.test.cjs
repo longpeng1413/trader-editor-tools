@@ -241,9 +241,10 @@ test('highlight preserves explicitly colored text and clear accepts that foregro
   const clear=stylePatch(next,patch.selectFrom,patch.selectTo,'clear');
   assert.equal(next.slice(0,clear.from)+clear.text+next.slice(clear.to),'风险');
 });
-test('clear does not delete sibling wrappers or third-party HTML',()=>{
+test('clear covers selected legacy siblings but never changes unselected siblings or third-party HTML',()=>{
   const text='<u>A</u> + <u>B</u>';
-  assert.equal(stylePatch(text,0,text.length,'clear').text,text);
+  assert.equal(stylePatch(text,0,text.length,'clear').text,'A + B');
+  assert.equal(stylePatch(text,3,4,'clear').text,'A + <u>B</u>');
   const custom='<span class="custom">风险</span>';
   assert.equal(stylePatch(custom,0,custom.length,'clear').text,custom);
 });

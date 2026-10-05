@@ -8,7 +8,8 @@
 | `src/markdown.js` | 纯函数：保守行分类、格式化插空行、图片扫描/尺寸 token、表格边界与安全写回 |
 | `src/layout.js` | CM6 行装饰、跨窗口 CSS 变量、输入行可见性、Tab 知识行 postprocessor |
 | `src/image-resize.js` | 源码定位、Pointer Events、覆盖层、尺寸提交、并发保护 |
-| `src/text-style.js` | 选区快照、标准 HTML 包裹/清除、单事务提交 |
+| `src/text-style.js` | Markdown 行内语义树、视觉属性读取/合并/规范化、快照与单事务提交 |
+| `src/text-style-view.js` | 从源码语义派生 LP HTML 组件的粗体/斜体/删除线显示，不写笔记 |
 | `styles.css` | Live Preview / 语义阅读块 / PDF 样式和非打印控件 |
 | `tests/` | 纯算法与真实 CM6/Chromium 夹具回归 |
 
@@ -52,7 +53,9 @@
 
 ## Text styles
 
-调色板打开前捕获文本/文件/选区，确认文本仍一致后提交。仅处理明确属于本插件的完整 HTML wrapper，不全局删除第三方标签。高亮保持已有显式文字色，否则采用可读深色前景。不包裹跨段落/表格行选区。
+调色板打开前捕获文本/文件/选区，确认文本仍一致后提交。Marked Lexer 读取行内语义树，但不从 HTML 反向生成 Markdown：原 delimiters、链接目标和标题字节原样保留。视觉标签展平为属性，选区内只修改目标属性，输出统一 owned span；相邻相同属性合并、空属性解包。混合语义保留多个兄弟 span，受保护语法不插入标签。详细流程和边界见 [TEXT-STYLES.md](TEXT-STYLES.md)。
+
+Live Preview 将 inline HTML 渲染为独立组件，不能仅凭 span 外层 `**` 期待继承粗体。新增 ViewPlugin 通过 posAtDOM 映射源位置，派生临时语义类；MutationObserver 处理异步 widget 重建，requestMeasure 分离读写。语义改变或停用时清理派生类，持久化 CSS 只含视觉属性。Reading/PDF 不需要此补偿。
 
 ## Maintenance risks
 

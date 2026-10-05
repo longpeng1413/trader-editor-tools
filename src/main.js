@@ -1,6 +1,7 @@
 const { Plugin, PluginSettingTab, Setting, Modal, Notice, MarkdownView, normalizePath } = require('obsidian');
 const { formatNote, scanImages, imageDimensions, isImageTarget, isExcalidraw } = require('./markdown');
 const { captureSelection, commitStyle, HEX } = require('./text-style');
+const { textStyleExtension } = require('./text-style-view');
 const { layoutExtension, applyLayout, decorateTabKnowledge, refreshTabKnowledge, decorateExtraBlankLines, refreshExtraBlankLines } = require('./layout');
 const { ImageResizeManager, cleanTarget } = require('./image-resize');
 
@@ -151,7 +152,7 @@ class TraderSettings extends PluginSettingTab {
     number('拖拽最大宽度（px）','maxImageWidth',100,8192,10);
     new Setting(el).setName('Excalidraw 检测').setDesc(p.excalidrawAvailable() ? '已检测到启用的 Excalidraw；使用原生嵌入尺寸语法。' : '未检测到启用的 Excalidraw。普通图片和其他功能照常可用；绘图需启用 Excalidraw 后测试。');
     el.createEl('h3',{text:'常用颜色'});
-    el.createEl('p',{text:'每行依次为名称、文字色、背景色。前 9 行对应固定快捷键槽位；浅色高亮默认深色前景，已设置的文字色会保留。',cls:'tet-muted'});
+    el.createEl('p',{text:'每行依次为名称、文字色、背景色。前 9 行对应固定快捷键槽位；颜色、高亮、下划线独立叠加，高亮不改文字颜色。深色主题请按需同时设置文字色以确保对比度。',cls:'tet-muted'});
     s.colors.forEach((color,index)=>{
       new Setting(el).setName(`槽位 ${index+1}`)
         .addText(t=>t.setValue(color.name).onChange(async v=>{color.name=v.trim().slice(0,40)||`颜色 ${index+1}`;await p.saveSettings();}))
@@ -179,6 +180,7 @@ module.exports = class TraderEditorTools extends Plugin {
     this.registerEvent(this.app.workspace.on('active-leaf-change',()=>this.images.close()));
     this.registerEvent(this.app.workspace.on('file-open',()=>{this.images.resolveId++;this.images.close();}));
     this.registerEditorExtension(layoutExtension(this));
+    this.registerEditorExtension(textStyleExtension());
     this.registerMarkdownPostProcessor((el,ctx)=>this.images.annotate(el,ctx));
     this.registerMarkdownPostProcessor((el,ctx)=>decorateTabKnowledge(el,ctx,this.settings));
     this.registerMarkdownPostProcessor((el,ctx)=>decorateExtraBlankLines(el,ctx,this.settings));
@@ -206,7 +208,7 @@ module.exports = class TraderEditorTools extends Plugin {
         } else commitStyle(snapshot,kind);
       } catch(e) { notifyError(e); }
     };
-    for(const [kind,name] of [['color','设置文字颜色…'],['highlight','设置背景高亮…'],['underline','切换下划线'],['clear','清除选中文字样式']]) {
+    for(const [kind,name] of [['color','设置文字颜色…'],['highlight','设置背景高亮…'],['underline','切换下划线'],['clear-color','清除文字颜色'],['clear-highlight','清除背景高亮'],['clear-underline','清除下划线'],['clear','清除全部插件文字样式（保留 Markdown）']]) {
       this.addCommand({id:'style-'+kind,name,editorCallback:(editor,info)=>style(kind,editor,info)});
     }
     for(let i=0;i<9;i++) for(const [kind,label] of [['color','文字颜色'],['highlight','背景高亮']]) {
@@ -220,7 +222,7 @@ module.exports = class TraderEditorTools extends Plugin {
       if(!editor.getSelection()) return;
       let snapshot; try { snapshot=captureSelection(editor,info.file);snapshot.info=info; } catch(_) { return; }
       menu.addSeparator();
-      for(const [kind,label,icon] of [['color','猛人编辑：文字颜色…','palette'],['highlight','猛人编辑：背景高亮…','highlighter'],['underline','猛人编辑：切换下划线','underline'],['clear','猛人编辑：清除文字样式','eraser']]) {
+      for(const [kind,label,icon] of [['color','猛人编辑：文字颜色…','palette'],['highlight','猛人编辑：背景高亮…','highlighter'],['underline','猛人编辑：切换下划线','underline'],['clear-color','猛人编辑：清除文字颜色','eraser'],['clear-highlight','猛人编辑：清除背景高亮','eraser'],['clear-underline','猛人编辑：清除下划线','eraser'],['clear','猛人编辑：清除全部插件样式（保留 Markdown）','eraser']]) {
         menu.addItem(item=>item.setTitle(label).setIcon(icon).onClick(()=>{
           try { if(kind==='color'||kind==='highlight') new PaletteModal(this,snapshot,kind).open(); else commitStyle(snapshot,kind); } catch(e) { notifyError(e); }
         }));

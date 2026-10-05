@@ -1,14 +1,14 @@
 {
   "name": "trader-editor-tools",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "license": "MIT",
   "repository": {"type":"git","url":"https://github.com/longpeng1413/trader-editor-tools.git"},
   "private": true,
   "description": "猛人obsidian编辑插件：可直接安装、可重复构建，含回归测试。",
   "scripts": {
     "build": "node scripts/build.cjs",
-    "test": "node --test tests/core.test.cjs tests/browser.test.cjs",
-    "test:core": "node --test tests/core.test.cjs",
+    "test": "node --test tests/core.test.cjs tests/text-style.test.cjs tests/browser.test.cjs",
+    "test:core": "node --test tests/core.test.cjs tests/text-style.test.cjs",
     "test:browser": "node --test tests/browser.test.cjs"
   },
   "devDependencies": {
